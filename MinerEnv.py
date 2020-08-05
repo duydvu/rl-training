@@ -43,34 +43,76 @@ class MinerEnv:
     # Functions are customized by client
     def get_state(self):
         # Building the map
-        view = np.zeros([self.state.mapInfo.max_x + 1, self.state.mapInfo.max_y + 1], dtype=int)
-        for i in range(self.state.mapInfo.max_x + 1):
-            for j in range(self.state.mapInfo.max_y + 1):
-                if self.state.mapInfo.get_obstacle(i, j) == TreeID:  # Tree
-                    view[i, j] = -TreeID
-                if self.state.mapInfo.get_obstacle(i, j) == TrapID:  # Trap
-                    view[i, j] = -TrapID
-                if self.state.mapInfo.get_obstacle(i, j) == SwampID: # Swamp
-                    view[i, j] = -SwampID
-                if self.state.mapInfo.gold_amount(i, j) > 0:
-                    view[i, j] = self.state.mapInfo.gold_amount(i, j)
+        view = np.zeros([self.state.mapInfo.max_x + 3, self.state.mapInfo.max_y + 3, 5], dtype=int)
+        for obstacle in self.state.mapInfo.obstacles:
+            obstacle_type = obstacle['type']
+            x = obstacle['posx'] + 1
+            y = obstacle['posy'] + 1
+            if obstacle_type == TreeID:  # Tree
+                view[x, y, 0] = -TreeID
+            if obstacle_type == TrapID:  # Trap
+                view[x, y, 0] = -TrapID
+            if obstacle_type == SwampID:  # Swamp
+                view[x, y, 0] = -SwampID
 
-        DQNState = view.flatten().tolist() #Flattening the map matrix to a vector
-        
-        # Add position and energy of agent to the DQNState
-        DQNState.append(self.state.x)
-        DQNState.append(self.state.y)
-        DQNState.append(self.state.energy)
-        #Add position of bots 
+        for gold in self.state.mapInfo.golds:
+            gold_amount = gold['amount'] / 50
+            x = gold['posx'] + 1
+            y = gold['posy'] + 1
+            if gold_amount > 0:
+                view[x, y, 0] = gold_amount
+
+        view[self.state.x + 1, self.state.y + 1, 1] = 1
         for player in self.state.players:
             if player["playerId"] != self.state.id:
-                DQNState.append(player["posx"])
-                DQNState.append(player["posy"])
-                
-        #Convert the DQNState from list to array for training
-        DQNState = np.array(DQNState)
+                x = player["posx"] + 1
+                y = player["posy"] + 1
+                view[x, y, player['playerId']] = 1
 
-        return DQNState
+        return [view, [self.state.energy / 50]]
+
+    def get_readable_state(self):
+        # Building the map
+        view = np.zeros([self.state.mapInfo.max_x + 1,
+                         self.state.mapInfo.max_y + 1], dtype=int)
+        for obstacle in self.state.mapInfo.obstacles:
+            obstacle_type = obstacle['type']
+            x = obstacle['posx']
+            y = obstacle['posy']
+            if obstacle_type == TreeID:  # Tree
+                view[x, y] = -TreeID
+            if obstacle_type == TrapID:  # Trap
+                view[x, y] = -TrapID
+            if obstacle_type == SwampID:  # Swamp
+                view[x, y] = -SwampID
+        for gold in self.state.mapInfo.golds:
+            gold_amount = gold['amount']
+            x = gold['posx']
+            y = gold['posy']
+            if gold_amount > 0:
+                view[x, y] = gold_amount
+
+        # Add position and energy of agent to the DQNState
+        playerStates = [{
+            'id': self.state.id,
+            'x': self.state.x,
+            'y': self.state.y,
+            'energy': self.state.energy,
+            'score': self.state.score,
+        }]
+        #Add position of bots
+        for player in self.state.players:
+            if player["playerId"] != self.state.id:
+                playerStates.append({
+                    'id': player['playerId'],
+                    'x': player['posx'],
+                    'y': player['posy'],
+                })
+
+        return {
+            'map': view.tolist(),
+            'players': playerStates,
+        }
 
     def get_reward(self):
         # Calculate reward
@@ -82,11 +124,12 @@ class MinerEnv:
             reward += score_action
             
         #If the DQN agent crashs into obstacels (Tree, Trap, Swamp), then it should be punished by a negative reward
-        if self.state.mapInfo.get_obstacle(self.state.x, self.state.y) == TreeID:  # Tree
+        obstacle = self.state.mapInfo.get_obstacle(self.state.x, self.state.y)
+        if obstacle == TreeID:  # Tree
             reward -= TreeID
-        if self.state.mapInfo.get_obstacle(self.state.x, self.state.y) == TrapID:  # Trap
+        if obstacle == TrapID:  # Trap
             reward -= TrapID
-        if self.state.mapInfo.get_obstacle(self.state.x, self.state.y) == SwampID:  # Swamp
+        if obstacle == SwampID:  # Swamp
             reward -= SwampID
 
         # If out of the map, then the DQN agent should be punished by a larger nagative reward.

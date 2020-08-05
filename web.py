@@ -44,7 +44,7 @@ s = minerEnv.get_state()
 def get_next():
     global s
     if not minerEnv.check_terminate()[0]:
-        action = np.argmax(DQNAgent.predict(s.reshape(1, len(s))))
+        action = np.argmax(DQNAgent.predict([[s[0]], [s[1]]]))
         minerEnv.step(str(action))
         s = minerEnv.get_state()
         return jsonify({

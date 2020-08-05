@@ -3,9 +3,9 @@ from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
 
 import numpy as np
-from keras.models import Sequential
+from keras.models import Model
 from keras.models import model_from_json
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Input, Conv2D, Flatten, MaxPool2D, multiply
 from keras import optimizers
 from keras import backend as K
 import tensorflow as tf
@@ -51,26 +51,31 @@ class DQN:
       self.sess.run( tf.compat.v1.global_variables_initializer()) 
       
     def create_model(self):
-      #Creating the network
-      #Two hidden layers (300,300), their activation is ReLu
-      #One output layer with action_space of nodes, activation is linear.
-      model = Sequential()
-      model.add(Dense(300, input_dim=self.input_dim))
-      model.add(Activation('relu'))
-      model.add(Dense(300))
-      model.add(Activation('relu'))
-      model.add(Dense(self.action_space))
-      model.add(Activation('linear'))    
-      #adam = optimizers.adam(lr=self.learning_rate)
-      sgd = optimizers.SGD(lr=self.learning_rate, decay=1e-6, momentum=0.95)
-      model.compile(optimizer = sgd,
-              loss='mse')
+      input_view = Input(shape=(23, 11, 5))
+      conv = Conv2D(filters=32, kernel_size=3, strides=1, activation='relu')(input_view)
+      max_pool = MaxPool2D(pool_size=2, strides=2)(conv)
+      conv2 = Conv2D(filters=64, kernel_size=2, activation='relu')(max_pool)
+      max_pool2 = MaxPool2D(pool_size=2, strides=1)(conv2)
+      flatten = Flatten()(max_pool2)
+      hidden = Dense(300, activation='relu')(flatten)
+      y = Dense(self.action_space, activation='linear')(hidden)
+      model1 = Model(inputs=input_view, outputs=y)
+
+      input_energy = Input(shape=(1,))
+      model2_output = Dense(self.action_space, activation='sigmoid')(input_energy)
+      model2 = Model(inputs=input_energy, outputs=model2_output)
+
+      mul = multiply([model1.output, model2.output])
+
+      model = Model(inputs=[input_view, input_energy], outputs=mul)
+      adam = optimizers.adam(lr=self.learning_rate)
+      model.compile(optimizer=adam, loss='mse')
       return model
   
     
     def act(self,state):
       #Get the index of the maximum Q values      
-      a_max = np.argmax(self.model.predict(state.reshape(1,len(state))))      
+      a_max = np.argmax(self.model.predict([[state[0]], [state[1]]]))      
       if (random() < self.epsilon):
         a_chosen = randrange(self.action_space)
       else:
@@ -79,25 +84,27 @@ class DQN:
     
     
     def replay(self,samples,batch_size):
-      inputs = np.zeros((batch_size, self.input_dim))
-      targets = np.zeros((batch_size, self.action_space))
-      
+      states, actions, rewards, new_states, dones = samples
+      states = list(zip(*states))
+      states = [list(states[0]), list(states[1])]
+      new_states = list(zip(*new_states))
+      new_states = [list(new_states[0]), list(new_states[1])]
+      targets = self.target_model.predict(states)
+      Q_futures = np.max(self.target_model.predict(new_states),
+                         axis=1)
+
       for i in range(0,batch_size):
-        state = samples[0][i,:]
-        action = samples[1][i]
-        reward = samples[2][i]
-        new_state = samples[3][i,:]
-        done= samples[4][i]
-        
-        inputs[i,:] = state
-        targets[i,:] = self.target_model.predict(state.reshape(1,len(state)))        
+        action = actions[i]
+        reward = rewards[i]
+        done = dones[i]
         if done:
           targets[i,action] = reward # if terminated, only equals reward
         else:
-          Q_future = np.max(self.target_model.predict(new_state.reshape(1,len(new_state))))
+          Q_future = Q_futures[i]
           targets[i,action] = reward + Q_future * self.gamma
+
       #Training
-      loss = self.model.train_on_batch(inputs, targets)  
+      loss = self.model.train_on_batch(states, targets)
     
     def target_train(self): 
       weights = self.model.get_weights()
