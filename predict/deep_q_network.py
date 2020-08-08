@@ -17,5 +17,6 @@ class DQNPredict:
 
     def predict(self, state):
         model_state = self.transform_state(state)
-        return np.argmax(self.model.predict(
-            [[model_state[0]], [model_state[1]]]))
+        q_values = self.model.predict(
+            [[model_state[0]], [model_state[1]]])
+        return np.argmax(q_values)

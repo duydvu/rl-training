@@ -31,16 +31,14 @@ status_map = {0: "PLAYING", 1: "ELIMINATED WENT OUT MAP", 2: "ELIMINATED OUT OF 
 # Initialize environment
 minerEnv = MinerEnv(None, None)
 minerEnv.start()
-minerEnv.send_map_info("map1,0,0,50,100")
-minerEnv.reset()
-s = minerEnv.get_state()
+s = None
 
 
 @app.route('/next', methods=['GET'])
 def get_next():
     global s
     if not minerEnv.check_terminate():
-        action = np.argmax(model.predict(s))
+        action = model.predict(s)
         minerEnv.step(str(action))
         s = minerEnv.get_state()
         return jsonify({
@@ -56,7 +54,7 @@ def get_next():
 @app.route('/reset', methods=['POST'])
 def reset():
     global s
-    minerEnv.send_map_info("map1,0,0,50,100")
+    minerEnv.send_map_info(0, 0 ,0)
     minerEnv.reset()
     s = minerEnv.get_state()
     return jsonify({
