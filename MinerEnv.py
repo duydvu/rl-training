@@ -42,28 +42,37 @@ class MinerEnv:
     # Functions are customized by client
     def get_state(self):
         # Building the map
-        view = np.zeros([self.state.mapInfo.max_x + 3, self.state.mapInfo.max_y + 3, 5], dtype=float)
+        view = np.zeros([self.state.mapInfo.max_x + 1,
+                         self.state.mapInfo.max_y + 1], dtype=int)
         for obstacle in self.state.mapInfo.obstacles:
             obstacle_type = obstacle['type']
-            x = obstacle['posx'] + 1
-            y = obstacle['posy'] + 1
-            view[x, y, 0] = -obstacle_type
+            x = obstacle['posx']
+            y = obstacle['posy']
+            view[x, y] = -obstacle_type
 
         for gold in self.state.mapInfo.golds:
-            gold_amount = gold['amount'] / 1000
-            x = gold['posx'] + 1
-            y = gold['posy'] + 1
+            gold_amount = gold['amount']
+            x = gold['posx']
+            y = gold['posy']
             if gold_amount > 0:
-                view[x, y, 0] = gold_amount
+                view[x, y] = gold_amount
 
-        view[self.state.x + 1, self.state.y + 1, 1] = 1
+        players = [{
+            'id': self.state.id,
+            'x': self.state.x,
+            'y': self.state.y,
+            'energy': self.state.energy,
+            'score': self.state.score,
+        }]
         for player in self.state.players:
             if player["playerId"] != self.state.id:
-                x = player["posx"] + 1
-                y = player["posy"] + 1
-                view[x, y, player['playerId']] = 1
+                players.append({
+                    'id': player["playerId"],
+                    'x': player["posx"],
+                    'y': player["posy"],
+                })
 
-        return [view, [self.state.energy / 50]]
+        return view, players
 
     def get_readable_state(self):
         # Building the map

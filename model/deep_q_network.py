@@ -17,7 +17,8 @@ class DQN:
    
     def __init__(
             self,
-            input_dim, #The number of inputs for the DQN network
+            input_max_x, #The number of inputs for the DQN network
+            input_max_y, #The number of inputs for the DQN network
             action_space, #The number of actions for the DQN network
             gamma = 0.99, #The discount factor
             epsilon = 1, #Epsilon - the exploration factor
@@ -30,7 +31,8 @@ class DQN:
             sess=None
             
     ):
-      self.input_dim = input_dim
+      self.input_max_x = input_max_x
+      self.input_max_y = input_max_y
       self.action_space = action_space
       self.gamma = gamma
       self.epsilon = epsilon
@@ -40,7 +42,7 @@ class DQN:
       self.tau = tau
             
       #Creating networks
-      self.model        = self.create_model() #Creating the DQN model
+      self.model = self.create_model() #Creating the DQN model
       self.target_model = self.create_model() #Creating the DQN target model
       
       #Tensorflow GPU optimization
@@ -51,7 +53,7 @@ class DQN:
       self.sess.run(tf.compat.v1.global_variables_initializer()) 
       
     def create_model(self):
-      input_view = Input(shape=(23, 11, 5))
+      input_view = Input(shape=(self.input_max_x, self.input_max_y, 5))
       conv = Conv2D(filters=16, kernel_size=3, strides=1, activation='relu')(input_view)
       max_pool = MaxPool2D(pool_size=2, strides=2)(conv)
       conv2 = Conv2D(filters=32, kernel_size=2, activation='relu')(max_pool)
@@ -72,11 +74,25 @@ class DQN:
       adam = optimizers.adam(lr=self.learning_rate)
       model.compile(optimizer=adam, loss='mse')
       return model
+
+
+    def transform_state(self, state):
+      view, players = state
+      model_view = np.zeros((view.shape[0] + 2, view.shape[1] + 2, 5), dtype=float)
+      model_view[1:-1, 1:-1, 0] = view
+      for player in players:
+        if player['id'] == 1:
+          energy = player['energy'] / 50
+        x = player['x']
+        y = player['y']
+        model_view[x + 1, y + 1, player['id']] = 1
+      
+      return [model_view, [energy]]
   
     
-    def act(self,state):
-      #Get the index of the maximum Q values      
-      a_max = np.argmax(self.model.predict([[state[0]], [state[1]]]))      
+    def act(self, state):
+      model_state = self.transform_state(state)
+      a_max = np.argmax(self.model.predict([[model_state[0]], [model_state[1]]]))      
       if (random() < self.epsilon):
         a_chosen = randrange(self.action_space)
       else:
@@ -86,9 +102,9 @@ class DQN:
     
     def replay(self,samples,batch_size):
       states, actions, rewards, new_states, dones = samples
-      states = list(zip(*states))
+      states = list(zip(*map(self.transform_state, states)))
       states = [list(states[0]), list(states[1])]
-      new_states = list(zip(*new_states))
+      new_states = list(zip(*map(self.transform_state, new_states)))
       new_states = [list(new_states[0]), list(new_states[1])]
       targets = self.target_model.predict(states)
       Q_futures = np.max(self.target_model.predict(new_states),
