@@ -76,7 +76,8 @@ class DQN:
       return model
 
 
-    def transform_state(self, state):
+    @staticmethod
+    def transform_state(state):
       view, players = state
       model_view = np.zeros((view.shape[0] + 2, view.shape[1] + 2, 5), dtype=float)
       model_view[1:-1, 1:-1, 0] = view
@@ -145,5 +146,3 @@ class DQN:
             # serialize weights to HDF5
         self.model.save_weights(model_path + ".h5")
         print("Saved model to disk")
- 
-

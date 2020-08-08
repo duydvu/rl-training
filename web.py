@@ -9,6 +9,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 from MinerEnv import MinerEnv
+from predict.deep_q_network import DQNPredict
 
 
 simplefilter(action='ignore', category=FutureWarning)
@@ -20,14 +21,9 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 K.set_session(tf.compat.v1.Session(config=config))
 
-model = max(glob.glob('TrainedModels/*.json'))
-# load json and create model
-with open(model, 'r') as json_file:
-    loaded_model_json = json_file.read()
-DQNAgent = model_from_json(loaded_model_json)
-# load weights into new model
-DQNAgent.load_weights('%s.h5' % model[:-5])
-print("Loaded model %s from disk" % model)
+json_path = max(glob.glob('TrainedModels/*.json'))
+model = DQNPredict(json_path)
+print("Loaded model %s from disk" % json_path)
 
 status_map = {0: "PLAYING", 1: "ELIMINATED WENT OUT MAP", 2: "ELIMINATED OUT OF ENERGY",
               3: "ELIMINATED INVALID ACTION", 4: "STOP EMPTY GOLD", 5: "STOP END STEP"}
@@ -43,8 +39,8 @@ s = minerEnv.get_state()
 @app.route('/next', methods=['GET'])
 def get_next():
     global s
-    if not minerEnv.check_terminate()[0]:
-        action = np.argmax(DQNAgent.predict([[s[0]], [s[1]]]))
+    if not minerEnv.check_terminate():
+        action = np.argmax(model.predict(s))
         minerEnv.step(str(action))
         s = minerEnv.get_state()
         return jsonify({
