@@ -51,7 +51,7 @@ for episode_i in range(0, config['N_EPISODE']):
             memory.push(s, action, reward, terminate, s_next)
 
             # Sample batch memory to train network
-            if (memory.length > config['INITIAL_REPLAY_SIZE']):
+            if (memory.length >= config['INITIAL_REPLAY_SIZE']):
                 #If there are INITIAL_REPLAY_SIZE experiences in the memory batch then start replaying
                 batch = memory.sample(config['BATCH_SIZE'])
                 DQNAgent.replay(batch, config['BATCH_SIZE'])
