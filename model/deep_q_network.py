@@ -48,26 +48,27 @@ class DQN:
       config.gpu_options.allow_growth = True
       self.sess = tf.compat.v1.Session(config=config)
       K.set_session(sess)
-      self.sess.run( tf.compat.v1.global_variables_initializer()) 
+      self.sess.run(tf.compat.v1.global_variables_initializer()) 
       
     def create_model(self):
       input_view = Input(shape=(23, 11, 5))
-      conv = Conv2D(filters=32, kernel_size=3, strides=1, activation='relu')(input_view)
+      conv = Conv2D(filters=16, kernel_size=3, strides=1, activation='relu')(input_view)
       max_pool = MaxPool2D(pool_size=2, strides=2)(conv)
-      conv2 = Conv2D(filters=64, kernel_size=2, activation='relu')(max_pool)
+      conv2 = Conv2D(filters=32, kernel_size=2, activation='relu')(max_pool)
       max_pool2 = MaxPool2D(pool_size=2, strides=1)(conv2)
       flatten = Flatten()(max_pool2)
-      hidden = Dense(300, activation='relu')(flatten)
-      y = Dense(self.action_space, activation='linear')(hidden)
+      y = Dense(128, activation='relu')(flatten)
       model1 = Model(inputs=input_view, outputs=y)
 
       input_energy = Input(shape=(1,))
-      model2_output = Dense(self.action_space, activation='sigmoid')(input_energy)
+      model2_output = Dense(128, activation='tanh')(input_energy)
       model2 = Model(inputs=input_energy, outputs=model2_output)
 
       mul = multiply([model1.output, model2.output])
 
-      model = Model(inputs=[input_view, input_energy], outputs=mul)
+      output = Dense(self.action_space, activation='linear')(mul)
+
+      model = Model(inputs=[input_view, input_energy], outputs=output)
       adam = optimizers.adam(lr=self.learning_rate)
       model.compile(optimizer=adam, loss='mse')
       return model
@@ -120,13 +121,13 @@ class DQN:
       self.epsilon =  max(self.epsilon_min, self.epsilon)
     
     
-    def save_model(self,path, model_name):
+    def save_model(self, model_path):
         # serialize model to JSON
         model_json = self.model.to_json()
-        with open(path + model_name + ".json", "w") as json_file:
+        with open(model_path + ".json", "w") as json_file:
             json_file.write(model_json)
             # serialize weights to HDF5
-            self.model.save_weights(path + model_name + ".h5")
-            print("Saved model to disk")
+        self.model.save_weights(model_path + ".h5")
+        print("Saved model to disk")
  
 

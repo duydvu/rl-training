@@ -2,11 +2,9 @@ import sys
 import numpy as np
 from GAME_SOCKET_DUMMY import GameSocket #in testing version, please use GameSocket instead of GAME_SOCKET_DUMMY
 from MINER_STATE import State
+from constants import Action
 
 
-TreeID = 1
-TrapID = 2
-SwampID = 3
 class MinerEnv:
     def __init__(self, host, port):
         self.socket = GameSocket(host, port)
@@ -20,7 +18,8 @@ class MinerEnv:
     def end(self): #disconnect server
         self.socket.close()
 
-    def send_map_info(self, request):#tell server which map to run
+    def send_map_info(self, map_id, pos_x, pos_y, init_energy=50, max_steps=100):#tell server which map to run
+        request = 'map%d,%d,%d,%d,%d' % (map_id, pos_x, pos_y, init_energy, max_steps)
         self.socket.send(request)
 
     def reset(self): #start new game
@@ -43,20 +42,15 @@ class MinerEnv:
     # Functions are customized by client
     def get_state(self):
         # Building the map
-        view = np.zeros([self.state.mapInfo.max_x + 3, self.state.mapInfo.max_y + 3, 5], dtype=int)
+        view = np.zeros([self.state.mapInfo.max_x + 3, self.state.mapInfo.max_y + 3, 5], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
             obstacle_type = obstacle['type']
             x = obstacle['posx'] + 1
             y = obstacle['posy'] + 1
-            if obstacle_type == TreeID:  # Tree
-                view[x, y, 0] = -TreeID
-            if obstacle_type == TrapID:  # Trap
-                view[x, y, 0] = -TrapID
-            if obstacle_type == SwampID:  # Swamp
-                view[x, y, 0] = -SwampID
+            view[x, y, 0] = -obstacle_type
 
         for gold in self.state.mapInfo.golds:
-            gold_amount = gold['amount'] / 50
+            gold_amount = gold['amount'] / 1000
             x = gold['posx'] + 1
             y = gold['posy'] + 1
             if gold_amount > 0:
@@ -79,12 +73,8 @@ class MinerEnv:
             obstacle_type = obstacle['type']
             x = obstacle['posx']
             y = obstacle['posy']
-            if obstacle_type == TreeID:  # Tree
-                view[x, y] = -TreeID
-            if obstacle_type == TrapID:  # Trap
-                view[x, y] = -TrapID
-            if obstacle_type == SwampID:  # Swamp
-                view[x, y] = -SwampID
+            view[x, y] = -obstacle_type
+
         for gold in self.state.mapInfo.golds:
             gold_amount = gold['amount']
             x = gold['posx']
@@ -121,24 +111,18 @@ class MinerEnv:
         self.score_pre = self.state.score
         if score_action > 0:
             #If the DQN agent crafts golds, then it should obtain a positive reward (equal score_action)
-            reward += score_action
+            reward += score_action / 50
             
-        #If the DQN agent crashs into obstacels (Tree, Trap, Swamp), then it should be punished by a negative reward
-        obstacle = self.state.mapInfo.get_obstacle(self.state.x, self.state.y)
-        if obstacle == TreeID:  # Tree
-            reward -= TreeID
-        if obstacle == TrapID:  # Trap
-            reward -= TrapID
-        if obstacle == SwampID:  # Swamp
-            reward -= SwampID
+        if self.state.energy >= 45 and self.state.lastAction == Action.REST:
+            reward += -0.2
 
         # If out of the map, then the DQN agent should be punished by a larger nagative reward.
         if self.state.status == State.STATUS_ELIMINATED_WENT_OUT_MAP:
-            reward += -10
+            reward += -0.2
             
         #Run out of energy, then the DQN agent should be punished by a larger nagative reward.
         if self.state.status == State.STATUS_ELIMINATED_OUT_OF_ENERGY:
-            reward += -10
+            reward += -0.2
         # print ("reward",reward)
         return reward
 
