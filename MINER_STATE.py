@@ -59,13 +59,15 @@ class MapInfo:
     def is_column_has_gold(self, x):
         return x in [cell["posx"] for cell in self.golds]
 
-    def gold_amount(self, x, y): #Get the amount of golds at cell (x,y)
+    def gold_amount(self, x, y):
+        """Get the amount of golds at cell (x,y)"""
         for cell in self.golds:
             if x == cell["posx"] and y == cell["posy"]:
                 return cell["amount"]
         return 0 
 
-    def get_obstacle(self, x, y):  # Get the kind of the obstacle at cell(x,y)
+    def get_obstacle(self, x, y):
+        """Get the kind of the obstacle at cell(x,y)"""
         for cell in self.obstacles:
             if x == cell["posx"] and y == cell["posy"]:
                 return cell["type"]
