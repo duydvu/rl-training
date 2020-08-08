@@ -80,14 +80,15 @@ class DQN:
     def transform_state(state):
       view, players = state
       model_view = np.zeros((view.shape[0] + 2, view.shape[1] + 2, 5), dtype=float)
+      model_view[:, :, 0] = -5
       model_view[1:-1, 1:-1, 0] = view
+      model_view[model_view > 0] = model_view[model_view > 0] / 1000
       for player in players:
         if player['id'] == 1:
           energy = player['energy'] / 50
         x = player['x']
         y = player['y']
         model_view[x + 1, y + 1, player['id']] = 1
-      
       return [model_view, [energy]]
   
     
