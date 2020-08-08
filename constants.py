@@ -7,6 +7,7 @@ class Action(Enum):
     DOWN = 3
     FREE = 4
     CRAFT = 5
+    ELIMINATED = 6
 
 
 class Obstacle(Enum):

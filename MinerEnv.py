@@ -9,7 +9,10 @@ class MinerEnv:
     def __init__(self, host, port):
         self.socket = GameSocket(host, port)
         self.state = State()
-        
+
+        self.x_pre = 0
+        self.y_pre = 0
+        self.energy_pre = 0
         self.score_pre = self.state.score#Storing the last score for designing the reward function
 
     def start(self): #connect to server
@@ -31,6 +34,9 @@ class MinerEnv:
             traceback.print_exc()
 
     def step(self, action): #step process
+        self.x_pre = self.state.x
+        self.y_pre = self.state.y
+        self.energy_pre = self.state.energy
         self.socket.send(action) #send action to server
         try:
             message = self.socket.receive() #receive new state from server
@@ -122,16 +128,22 @@ class MinerEnv:
             #If the DQN agent crafts golds, then it should obtain a positive reward (equal score_action)
             reward += score_action / 50
             
-        if self.state.energy >= 45 and self.state.lastAction == Action.FREE:
+        if self.state.energy >= 45 and Action(self.state.lastAction) == Action.FREE:
             reward += -0.2
 
-        # If out of the map, then the DQN agent should be punished by a larger nagative reward.
         if self.state.status == State.STATUS_ELIMINATED_WENT_OUT_MAP:
             reward += -1.0
-            
-        # Run out of energy, then the DQN agent should be punished by a larger nagative reward.
+
         if self.state.status == State.STATUS_ELIMINATED_OUT_OF_ENERGY:
             reward += -1.0
+
+        # If there is no gold, but the agent still crafts golds, it will be punished.
+        if Action(self.state.lastAction) == Action.CRAFT and self.energy_pre - self.state.energy == 10:
+            reward += -0.2
+
+        # If the agent is standing on a rich gold mine and its energy is enough but it didn't craft then it will be punished. 
+        if Action(self.state.lastAction) != Action.CRAFT and self.state.mapInfo.gold_amount(self.x_pre, self.y_pre) >= 50 and self.energy_pre > 15:
+            reward += -0.2
         return reward
 
     def check_terminate(self):
