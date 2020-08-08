@@ -54,7 +54,7 @@ for episode_i in range(0, config['N_EPISODE']):
             if (memory.length >= config['INITIAL_REPLAY_SIZE']):
                 #If there are INITIAL_REPLAY_SIZE experiences in the memory batch then start replaying
                 batch = memory.sample(config['BATCH_SIZE'])
-                DQNAgent.replay(batch, config['BATCH_SIZE'])
+                DQNAgent.replay(batch)
                 train = True
             total_reward = total_reward + reward
             s = s_next

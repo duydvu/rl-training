@@ -100,7 +100,7 @@ class DQN:
         return a_chosen
     
     
-    def replay(self,samples,batch_size):
+    def replay(self, samples):
         states, actions, rewards, new_states, dones = samples
         states = list(zip(*map(self.transform_state, states)))
         states = [list(states[0]), list(states[1])]
@@ -110,7 +110,7 @@ class DQN:
         Q_futures = np.max(self.target_model.predict(new_states),
                            axis=1)
 
-        for i in range(0,batch_size):
+        for i in range(len(states)):
             action = actions[i]
             reward = rewards[i]
             done = dones[i]
