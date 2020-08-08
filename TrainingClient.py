@@ -1,18 +1,14 @@
-import logging
-from model.deep_q_network import DQN
-from MinerEnv import MinerEnv # A class of creating a communication environment between the DQN model and the GameMiner environment (GAME_SOCKET_DUMMY.py)
-from Memory import Memory # A class of creating a batch in order to store experiences for the training process
-
+import json
 import pandas as pd
 import numpy as np
-import json
 from random import randrange
 
+from model.deep_q_network import DQN
+from MinerEnv import MinerEnv
+from Memory import Memory
 from utils import get_now_str
 from recorder import Recorder
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
 config = json.load(open('config/v1.json'))
 
@@ -77,8 +73,8 @@ for episode_i in range(0, config['N_EPISODE']):
 
         
         # Print the training information after the episode
-        logger.info('Episode %d ends. Number of steps is: %d. Accumulated Reward = %.2f. Epsilon = %.2f. Status code: %d',
-                    episode_i + 1, step + 1, total_reward, DQNAgent.epsilon, minerEnv.state.status)
+        print('Episode %d ends. Number of steps is: %d. Accumulated Reward = %.2f. Epsilon = %.2f. Status code: %d' % (
+              episode_i + 1, step + 1, total_reward, DQNAgent.epsilon, minerEnv.state.status))
         
         # Decreasing the epsilon if the replay starts
         if train == True:
