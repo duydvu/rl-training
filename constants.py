@@ -5,8 +5,8 @@ class Action(Enum):
     RIGHT = 1
     UP = 2
     DOWN = 3
-    REST = 4
-    MINE = 5
+    FREE = 4
+    CRAFT = 5
 
 
 class Obstacle(Enum):

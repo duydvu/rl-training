@@ -122,17 +122,16 @@ class MinerEnv:
             #If the DQN agent crafts golds, then it should obtain a positive reward (equal score_action)
             reward += score_action / 50
             
-        if self.state.energy >= 45 and self.state.lastAction == Action.REST:
+        if self.state.energy >= 45 and self.state.lastAction == Action.FREE:
             reward += -0.2
 
         # If out of the map, then the DQN agent should be punished by a larger nagative reward.
         if self.state.status == State.STATUS_ELIMINATED_WENT_OUT_MAP:
-            reward += -0.2
+            reward += -1.0
             
-        #Run out of energy, then the DQN agent should be punished by a larger nagative reward.
+        # Run out of energy, then the DQN agent should be punished by a larger nagative reward.
         if self.state.status == State.STATUS_ELIMINATED_OUT_OF_ENERGY:
-            reward += -0.2
-        # print ("reward",reward)
+            reward += -1.0
         return reward
 
     def check_terminate(self):
