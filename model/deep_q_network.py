@@ -28,6 +28,7 @@ class DQN:
             model = None, #The DQN model
             target_model = None, #The DQN target model 
             sess = None,
+            from_checkpoint=None,
     ):
         self.input_max_x = input_max_x
         self.input_max_y = input_max_y
@@ -38,25 +39,29 @@ class DQN:
         self.epsilon_decay = epsilon_decay
         self.learning_rate = learning_rate
         self.tau = tau
+        self.from_checkpoint = from_checkpoint
               
         #Creating networks
         self.model = self.create_model() #Creating the DQN model
         self.target_model = self.create_model() #Creating the DQN target model
+        self.model.summary()
         
         #Tensorflow GPU optimization
         config = tf.compat.v1.ConfigProto()
         config.gpu_options.allow_growth = True
-        self.sess = tf.compat.v1.Session(config=config)
-        K.set_session(sess)
-        self.sess.run(tf.compat.v1.global_variables_initializer()) 
-      
+        K.set_session(tf.Session(config=config))
+
     def create_model(self):
         input_view = Input(shape=(self.input_max_x, self.input_max_y, 5))
-        conv = Conv2D(filters=16, kernel_size=3, strides=1, activation='relu')(input_view)
-        max_pool = MaxPool2D(pool_size=2, strides=2)(conv)
-        conv2 = Conv2D(filters=32, kernel_size=2, activation='relu')(max_pool)
-        max_pool2 = MaxPool2D(pool_size=2, strides=1)(conv2)
-        flatten = Flatten()(max_pool2)
+        conv = Conv2D(filters=32, kernel_size=4,
+                      strides=1, activation='relu')(input_view)
+        # max_pool = MaxPool2D(pool_size=2, strides=2)(conv)
+        conv2 = Conv2D(filters=64, kernel_size=2,
+                       strides=2, activation='relu')(conv)
+        conv3 = Conv2D(filters=128, kernel_size=2,
+                       strides=2, activation='relu')(conv2)
+        max_pool3 = MaxPool2D(pool_size=[3, 2], strides=[2, 1])(conv3)
+        flatten = Flatten()(max_pool3)
         y = Dense(128, activation='relu')(flatten)
         model1 = Model(inputs=input_view, outputs=y)
 
@@ -71,6 +76,8 @@ class DQN:
         model = Model(inputs=[input_view, input_energy], outputs=output)
         adam = optimizers.adam(lr=self.learning_rate)
         model.compile(optimizer=adam, loss='mse')
+        if self.from_checkpoint:
+            model.load_weights('%s.h5' % self.from_checkpoint[:-5])
         return model
 
 
