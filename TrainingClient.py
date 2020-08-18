@@ -13,7 +13,8 @@ from recorder import Recorder
 config = json.load(open('config/v1.json'))
 
 # Initialize a DQN model and a memory batch for storing experiences
-DQNAgent = DQN(config['INPUT_NUM'], config['ACTION_NUM'], epsilon_decay=0.999)
+DQNAgent = DQN(23, 11, config['ACTION_NUM'],
+               epsilon_decay=0.9999, epsilon_min=0.05, learning_rate=0.0005, tau=0.9)
 memory = Memory(config['MEMORY_SIZE'])
 
 recorder = Recorder(["Ep", "Step", "Reward",
