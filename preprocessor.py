@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def transform_state(state):
+def preprocess_state(state):
     view, players = state
     model_view = np.zeros((view.shape[0], view.shape[1], 5), dtype=float)
     model_view[:, :, 0] = view
