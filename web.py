@@ -1,63 +1,57 @@
-import sys
-import glob
+import os
 import numpy as np
-import tensorflow as tf
+import importlib
 from warnings import simplefilter
-from keras import backend as K
-from keras.models import model_from_json
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from MinerEnv import MinerEnv
-from predict.deep_q_network import DQNPredict
-
 
 simplefilter(action='ignore', category=FutureWarning)
 
 app = Flask(__name__)
 CORS(app)
 
-config = tf.compat.v1.ConfigProto()
-config.gpu_options.allow_growth = True
-K.set_session(tf.compat.v1.Session(config=config))
-
-json_path = max(glob.glob('TrainedModels/*.json'))
-model = DQNPredict(json_path)
-print("Loaded model %s from disk" % json_path)
+predictor = getattr(importlib.import_module(os.getenv('PREDICTOR_MODULE')),
+    os.getenv('PREDICTOR_CLASS'))()
 
 status_map = {0: "PLAYING", 1: "ELIMINATED WENT OUT MAP", 2: "ELIMINATED OUT OF ENERGY",
               3: "ELIMINATED INVALID ACTION", 4: "STOP EMPTY GOLD", 5: "STOP END STEP"}
 
 # Initialize environment
-minerEnv = MinerEnv(None, None)
-minerEnv.start()
+miner_env = MinerEnv(None, None)
+miner_env.start()
 s = None
 
 
 @app.route('/next', methods=['GET'])
 def get_next():
     global s
-    if not minerEnv.check_terminate():
-        action = model.predict(s)
-        minerEnv.step(str(action))
-        s = minerEnv.get_state()
+    if not miner_env.check_terminate():
+        action = predictor.compute_action(s)
+        miner_env.step(str(action))
+        s = miner_env.get_state()
         return jsonify({
-            'state': minerEnv.get_readable_state(),
-            'status': status_map[minerEnv.state.status],
+            'state': miner_env.get_readable_state(),
+            'status': status_map[miner_env.state.status],
             'action': int(action),
         })
     return jsonify({
-        'status': status_map[minerEnv.state.status],
+        'status': status_map[miner_env.state.status],
     })
 
 
 @app.route('/reset', methods=['POST'])
 def reset():
     global s
-    minerEnv.send_map_info(0, 0 ,0)
-    minerEnv.reset()
-    s = minerEnv.get_state()
+    body = request.get_json()
+    map_id = int(body.get('map_id', 1))
+    x = int(body.get('init_x', 0))
+    y = int(body.get('init_y', 0))
+    miner_env.send_map_info(map_id, x, y)
+    miner_env.reset()
+    s = miner_env.get_state()
     return jsonify({
-        'state': minerEnv.get_readable_state(),
-        'status': status_map[minerEnv.state.status],
+        'state': miner_env.get_readable_state(),
+        'status': status_map[miner_env.state.status],
     })
