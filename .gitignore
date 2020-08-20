@@ -11,3 +11,4 @@ Data/*
 !*/.gitkeep
 /backup
 *.sh
+*.ipynb
