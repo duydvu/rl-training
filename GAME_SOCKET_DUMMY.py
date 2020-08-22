@@ -4,9 +4,7 @@ from array import *
 import json
 import os
 import math
-from bot1 import Bot1
-from bot2 import Bot2
-from bot3 import Bot3
+import copy
 from random import randrange
 
 
@@ -16,30 +14,25 @@ logger.setLevel(logging.INFO)
 
 class ObstacleInfo:
     # initial energy for obstacles: Land (key = 0): -1, Forest(key = -1): 0 (random), Trap(key = -2): -10, Swamp (key = -3): -5
-    types = {0: -1, -1: 0, -2: -10, -3: -5}
+    types = {
+        0: -1,
+        -1: 0,
+        -2: -10,
+        -3: -5,
+    }
 
-    def __init__(self):
-        self.type = 0
-        self.posx = 0
-        self.posy = 0
-        self.value = 0
+    def __init__(self, obs_type, posx, posy):
+        self.type = -obs_type
+        self.posx = posx
+        self.posy = posy
+        self.value = self.types[obs_type]
 
 
 class GoldInfo:
-    def __init__(self):
-        self.posx = 0
-        self.posy = 0
-        self.amount = 0
-
-    def loads(self, data):
-        golds = []
-        for gd in data:
-            g = GoldInfo()
-            g.posx = gd["posx"]
-            g.posy = gd["posy"]
-            g.amount = gd["amount"]
-            golds.append(g)
-        return golds
+    def __init__(self, posx, posy, amount):
+        self.posx = posx
+        self.posy = posy
+        self.amount = amount
 
 
 class PlayerInfo:
@@ -50,8 +43,8 @@ class PlayerInfo:
     STATUS_STOP_EMPTY_GOLD = 4
     STATUS_STOP_END_STEP = 5
 
-    def __init__(self, id):
-        self.playerId = id
+    def __init__(self, playerId):
+        self.playerId = playerId
         self.score = 0
         self.energy = 0
         self.posx = 0
@@ -62,32 +55,33 @@ class PlayerInfo:
 
 
 class GameInfo:
-    def __init__(self):
-        self.numberOfPlayers = 1
+    def __init__(self, numberOfPlayers, steps):
+        self.numberOfPlayers = numberOfPlayers
+        self.steps = steps
         self.width = 0
         self.height = 0
-        self.steps = 100
         self.golds = []
         self.obstacles = []
 
-    def loads(self, data):
-        m = GameInfo()
-        m.width = data["width"]
-        m.height = data["height"]
-        m.golds = GoldInfo().loads(data["golds"])
-        m.obstacles = data["obstacles"]
-        m.numberOfPlayers = data["numberOfPlayers"]
-        m.steps = data["steps"]
-        return m
+    def load_map(self, map_obj):
+        self.height = len(map_obj)
+        self.width = len(map_obj[0])
+        for i in range(self.height):
+            for j in range(self.width):
+                if map_obj[i][j] > 0:  # gold
+                    g = GoldInfo(posx=j, posy=i, amount=map_obj[i][j])
+                    self.golds.append(g)
+                else:  # obstacles
+                    o = ObstacleInfo(obs_type=map_obj[i][j], posx=j, posy=i)
+                    self.obstacles.append(o)
 
 
 class UserMatch:
-    def __init__(self):
-        self.playerId = 1
-        self.posx = 0
-        self.posy = 0
-        self.energy = 50
-        self.gameinfo = GameInfo()
+    def __init__(self, posx, posy, energy, numberOfPlayers, steps):
+        self.posx = posx
+        self.posy = posy
+        self.energy = energy
+        self.gameinfo = GameInfo(numberOfPlayers, steps)
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
@@ -104,114 +98,77 @@ class StepState:
 
 
 class GameSocket:
-    bog_energy_chain = {-5: -20, -20: -40, -40: -100, -100: -100}
+    bog_energy_chain = {
+        -5: -20,
+        -20: -40,
+        -40: -100,
+        -100: -100,
+    }
 
     def __init__(self, host, port):
         self.stepCount = 0
         self.maxStep = 0
         self.mapdir = "Maps"  # where to load all pre-defined maps
-        self.mapid = ""
-        self.userMatch = UserMatch()
-        self.user = PlayerInfo(1)
+        self.users = []
         self.stepState = StepState()
         self.maps = {}  # key: map file name, value: file content
         self.map = []  # running map info: 0->Land, -1->Forest, -2->Trap, -3:Swamp, >0:Gold
         self.energyOnMap = []  # self.energyOnMap[x][y]: <0, amount of energy which player will consume if it move into (x,y)
-        self.E = 50
+        self.E = 0
         self.resetFlag = True
         self.craftUsers = []  # players that craft at current step - for calculating amount of gold
-        self.bots = []
         self.craftMap = {}  # cells that players craft at current step, key: x_y, value: number of players that craft at (x,y)
 
-    def init_bots(self):
-        self.bots = [Bot1(2), Bot2(3), Bot3(4)]  # use bot1(id=2), bot2(id=3), bot3(id=4)
-        for (bot) in self.bots:  # at the beginning, all bots will have same position, energy as player
-            bot.info.posx = self.user.posx
-            bot.info.posy = self.user.posy
-            bot.info.energy = self.user.energy
-            bot.info.lastAction = -1
-            bot.info.status = PlayerInfo.STATUS_PLAYING
-            bot.info.score = 0
-            self.stepState.players.append(bot.info)
-        self.userMatch.gameinfo.numberOfPlayers = len(self.stepState.players)
-        logging.info("numberOfPlayers: %d", self.userMatch.gameinfo.numberOfPlayers)
-
-    def reset(self, requests):  # load new game by given request: [map id (filename), posx, posy, initial energy]
-        # load new map
-        self.reset_map(requests[0])
-        self.userMatch.posx = int(requests[1])
-        self.userMatch.posy = int(requests[2])
-        self.userMatch.energy = int(requests[3])
-        self.userMatch.gameinfo.steps = int(requests[4])
-        self.maxStep = self.userMatch.gameinfo.steps
-
-        # init data for players
-        self.user.posx = self.userMatch.posx  # in
-        self.user.posy = self.userMatch.posy
-        self.user.energy = self.userMatch.energy
-        self.user.status = PlayerInfo.STATUS_PLAYING
-        self.user.score = 0
-        self.stepState.players = [self.user]
-        self.E = self.userMatch.energy
-        self.resetFlag = True
-        self.init_bots()
-        self.stepCount = 0
-
-    def reset_map(self, id):  # load map info
-        self.mapId = id
-        self.map = json.loads(self.maps[self.mapId])
-        self.userMatch = self.map_info(self.map)
-        self.stepState.golds = self.userMatch.gameinfo.golds
-        self.map = json.loads(self.maps[self.mapId])
-        self.energyOnMap = json.loads(self.maps[self.mapId])
-        for x in range(len(self.map)):
-            for y in range(len(self.map[x])):
-                if self.map[x][y] > 0:  # gold
-                    self.energyOnMap[x][y] = -4
-                else:  # obstacles
-                    self.energyOnMap[x][y] = ObstacleInfo.types[self.map[x][y]]
-
-    def connect(self):  # simulate player's connect request
-        print("Connected to server.")
         # load all pre-defined maps from mapDir
         for filename in os.listdir(self.mapdir):
             print("Found: " + filename)
             with open(os.path.join(self.mapdir, filename), 'r') as f:
-                self.maps[filename] = f.read()
+                self.maps[filename] = json.loads(f.read())
 
-    def map_info(self, map):  # get map info
-        # print(map)
-        userMatch = UserMatch()
-        userMatch.gameinfo.height = len(map)
-        userMatch.gameinfo.width = len(map[0])
-        i = 0
-        while i < len(map):
-            j = 0
-            while j < len(map[i]):
-                if map[i][j] > 0:  # gold
-                    g = GoldInfo()
-                    g.posx = j
-                    g.posy = i
-                    g.amount = map[i][j]
-                    userMatch.gameinfo.golds.append(g)
+    def reset(self, requests):  # load new game by given request: [map id (filename), posx, posy, initial energy]
+        # load new map
+        mapId, *requests = requests
+        posx, posy, energy, steps = list(map(int, requests))
+        self.userMatch = UserMatch(posx=posx, posy=posy, energy=energy, numberOfPlayers=4, steps=steps)
+        self.reset_map(mapId)
+        self.maxStep = self.userMatch.gameinfo.steps
+
+        # init data for players
+        for user_id in range(1, 5):
+            user = PlayerInfo(str(user_id))
+            user.posx = self.userMatch.posx
+            user.posy = self.userMatch.posy
+            user.energy = self.userMatch.energy
+            user.lastAction = -1
+            user.status = PlayerInfo.STATUS_PLAYING
+            user.score = 0
+            user.freeCount = 0
+            self.users.append(user)
+
+        self.stepState.players = self.users
+        self.E = self.userMatch.energy
+        self.resetFlag = True
+        self.stepCount = 0
+
+    def reset_map(self, mapId):  # load map info
+        self.map = copy.deepcopy(self.maps[mapId])
+        self.userMatch.gameinfo.load_map(self.map)
+        self.stepState.golds = self.userMatch.gameinfo.golds
+        self.energyOnMap = copy.deepcopy(self.map)
+        for y in range(len(self.map)):
+            for x in range(len(self.map[y])):
+                if self.map[y][x] > 0:  # gold
+                    self.energyOnMap[y][x] = -4
                 else:  # obstacles
-                    o = ObstacleInfo()
-                    o.posx = j
-                    o.posy = i
-                    o.type = -map[i][j]
-                    o.value = ObstacleInfo.types[map[i][j]]
-                    userMatch.gameinfo.obstacles.append(o)
-                j += 1
-            i += 1
-        return userMatch
+                    self.energyOnMap[y][x] = ObstacleInfo.types[self.map[y][x]]
+
+    def connect(self):  # simulate player's connect request
+        print("Connected to server.")
 
     def receive(self):  # send data to player (simulate player's receive request)
         if self.resetFlag:  # for the first time -> send game info
             self.resetFlag = False
             data = self.userMatch.to_json()
-            for (bot) in self.bots:
-                bot.new_game(data)
-            # print(data)
             return data
         else:  # send step state
             self.stepCount = self.stepCount + 1
@@ -219,35 +176,27 @@ class GameSocket:
                 for player in self.stepState.players:
                     player.status = PlayerInfo.STATUS_STOP_END_STEP
             data = self.stepState.to_json()
-            for (bot) in self.bots:  # update bots' state
-                bot.new_state(data)
-            # print(data)
             return data
 
-    def send(self, message):  # receive message from player (simulate send request from player)
-        if message.isnumeric():  # player send action
+    def send(self, message: str):  # receive message from player (simulate send request from player)
+        if message.startswith('map'):  # reset game
+            requests = message.split(",")
+            logging.info("Reset game: %s", message)
+            self.reset(requests)
+        else:  # player send action
             self.resetFlag = False
             self.stepState.changedObstacles = []
-            action = int(message)
-            # print("Action = ", action)
-            self.user.lastAction = action
             self.craftUsers = []
-            self.step_action(self.user, action)
-            for bot in self.bots:
-                if bot.info.status == PlayerInfo.STATUS_PLAYING:
-                    action = bot.next_action()
-                    bot.info.lastAction = action
-                    # print("Bot Action: ", action)
-                    self.step_action(bot.info, action)
+            actions_dict = json.loads(message)
+            for user in self.users:
+                if user.status == PlayerInfo.STATUS_PLAYING:
+                    action = actions_dict[user.playerId]
+                    user.lastAction = action
+                    self.step_action(user, action)
             self.action_5_craft()
             for c in self.stepState.changedObstacles:
                 self.map[c["posy"]][c["posx"]] = -c["type"]
                 self.energyOnMap[c["posy"]][c["posx"]] = c["value"]
-
-        else:  # reset game
-            requests = message.split(",")
-            logging.info("Reset game: %s", message)
-            self.reset(requests)
 
     def step_action(self, user, action):
         switcher = {
