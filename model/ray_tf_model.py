@@ -12,19 +12,31 @@ class RayTFModel(TFModelV2):
     def __init__(self, obs_space, action_space, num_outputs, model_config,
                  name, **kw):
         super().__init__(obs_space, action_space, num_outputs, model_config, name, **kw)
-        input_view = tf.keras.layers.Input(shape=(21, 9, 5))
+        input_view = tf.keras.layers.Input(shape=(21, 9, 6))
+        object_view, *other_views = tf.unstack(input_view, axis=-1)
+        object_view = tf.keras.layers.Reshape(
+            target_shape=(21 * 9,))(object_view)
+        embedding_object_view = tf.keras.layers.Embedding(
+            input_dim=5,
+            output_dim=16,
+        )(object_view)
+        embedding_object_view = tf.keras.layers.Reshape(
+            target_shape=(21, 9, 16))(embedding_object_view)
+
+        other_views = tf.stack(other_views, axis=-1)
+        conv_view = tf.concat([embedding_object_view, other_views], axis=-1)
         conv = tf.keras.layers.Conv2D(
-            filters=32,
+            filters=64,
             kernel_size=4,
             strides=1,
-            activation='elu')(input_view)
+            activation='elu')(conv_view)
         conv2 = tf.keras.layers.Conv2D(
-            filters=64,
+            filters=128,
             kernel_size=2,
             strides=2,
             activation='elu')(conv)
         conv3 = tf.keras.layers.Conv2D(
-            filters=128,
+            filters=256,
             kernel_size=2,
             strides=2,
             activation='elu')(conv2)
@@ -45,6 +57,7 @@ class RayTFModel(TFModelV2):
         self.base_model = tf.keras.Model(
             inputs=[input_view, input_energy], outputs=output)
         self.register_variables(self.base_model.variables)
+        self.base_model.summary()
 
     def forward(self, input_dict, state, seq_lens):
         model_out = self.base_model(input_dict["obs"])

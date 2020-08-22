@@ -15,13 +15,8 @@ class GymMinerEnv(gym.Env):
         self.height = 9
         self.action_space = Discrete(6)
         self.observation_space = Tuple((
-            Box(low=0, high=np.inf, shape=(self.width, self.height, 5)),
+            Box(low=0, high=np.inf, shape=(self.width, self.height, 6)),
             Box(low=-np.inf, high=np.inf, shape=(4,)),
-            # Box(low=0, high=np.inf, shape=(self.width, self.height)),
-            # Repeated(Dict({
-            #     'position': Box(low=0, high=1, shape=(self.width, self.height)),
-            #     'energy': Box(low=-np.inf, high=np.inf, shape=(1,))
-            # }), max_len=4)
         ))
 
     def reset(self):
@@ -38,14 +33,13 @@ class GymMinerEnv(gym.Env):
 
     def get_state(self):
         # Building the map
-        view = np.zeros([self.width, self.height, 5], dtype=float)
-        gold_amount_view = np.zeros([self.width, self.height], dtype=float)
+        view = np.zeros([self.width, self.height, 6], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
             obstacle_type = obstacle['type']
             x = obstacle['posx']
             y = obstacle['posy']
-            # if obstacle_type != 0:
-            #     obstacle_type += 1
+            if obstacle_type != 0:
+                obstacle_type += 1
             view[x, y, 0] = obstacle_type
 
         for gold in self.state.mapInfo.golds:
@@ -53,26 +47,19 @@ class GymMinerEnv(gym.Env):
             x = gold['posx']
             y = gold['posy']
             if gold_amount > 0:
-                view[x, y, 0] = gold_amount / 1000
-                # gold_amount_view[x, y] = gold_amount / 1000
+                view[x, y, 0] = 1
+                view[x, y, 1] = gold_amount / 1000
 
         players = []
         for player in self.state.players:
-            # player_pos_onehot = np.zeros_like(view)
-            # player_pos_onehot[player['posx'], player['posy']] = 1
-            # players.append({
-            #     'position': player_pos_onehot,
-            #     'energy': [player['energy']]
-            # })
             x = player['posx']
             y = player['posy']
             if x < view.shape[0] and y < view.shape[1]:
-                view[x, y, player['playerId']] = 1
+                view[x, y, player['playerId'] + 1] = 1
             players.append(player['energy'])
 
         return (
             view,
-            # gold_amount_view,
             players
         )
 
