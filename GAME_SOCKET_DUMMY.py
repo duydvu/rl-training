@@ -134,6 +134,7 @@ class GameSocket:
         self.maxStep = self.userMatch.gameinfo.steps
 
         # init data for players
+        self.users = []
         for user_id in range(1, 5):
             user = PlayerInfo(user_id)
             user.posx = self.userMatch.posx
