@@ -135,7 +135,7 @@ class GameSocket:
 
         # init data for players
         for user_id in range(1, 5):
-            user = PlayerInfo(str(user_id))
+            user = PlayerInfo(user_id)
             user.posx = self.userMatch.posx
             user.posy = self.userMatch.posy
             user.energy = self.userMatch.energy
@@ -190,7 +190,7 @@ class GameSocket:
             actions_dict = json.loads(message)
             for user in self.users:
                 if user.status == PlayerInfo.STATUS_PLAYING:
-                    action = actions_dict[user.playerId]
+                    action = actions_dict[str(user.playerId)]
                     user.lastAction = action
                     self.step_action(user, action)
             self.action_5_craft()

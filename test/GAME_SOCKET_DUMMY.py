@@ -121,7 +121,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': str(playerId),
+                    'playerId': playerId,
                     'posx': -1,
                     'posy': 0,
                     'score': 0,
@@ -155,7 +155,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': str(playerId),
+                    'playerId': playerId,
                     'posx': 1,
                     'posy': 0,
                     'score': 0,
@@ -189,7 +189,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': str(playerId),
+                    'playerId': playerId,
                     'posx': 0,
                     'posy': -1,
                     'score': 0,
@@ -223,7 +223,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': str(playerId),
+                    'playerId': playerId,
                     'posx': 0,
                     'posy': 1,
                     'score': 0,
@@ -264,7 +264,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': str(playerId),
+                    'playerId': playerId,
                     'posx': 0,
                     'posy': 0,
                     'score': 0,
@@ -298,7 +298,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': str(playerId),
+                    'playerId': playerId,
                     'posx': 0,
                     'posy': 0,
                     'score': 50,
@@ -332,7 +332,7 @@ class TestGameSocket(unittest.TestCase):
         self.assertDictEqual({
             'players': [
                 {
-                    'playerId': '1',
+                    'playerId': 1,
                     'posx': -1,
                     'posy': 0,
                     'score': 0,
@@ -342,7 +342,7 @@ class TestGameSocket(unittest.TestCase):
                     'freeCount': 0,
                 },
                 {
-                    'playerId': '2',
+                    'playerId': 2,
                     'posx': 0,
                     'posy': 1,
                     'score': 0,
@@ -352,7 +352,7 @@ class TestGameSocket(unittest.TestCase):
                     'freeCount': 0,
                 },
                 {
-                    'playerId': '3',
+                    'playerId': 3,
                     'posx': 0,
                     'posy': 0,
                     'score': 0,
@@ -362,7 +362,7 @@ class TestGameSocket(unittest.TestCase):
                     'freeCount': 1,
                 },
                 {
-                    'playerId': '4',
+                    'playerId': 4,
                     'posx': 0,
                     'posy': 0,
                     'score': 50,
