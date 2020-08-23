@@ -26,17 +26,17 @@ class RayTFModel(TFModelV2):
         other_views = tf.stack(other_views, axis=-1)
         conv_view = tf.concat([embedding_object_view, other_views], axis=-1)
         conv = tf.keras.layers.Conv2D(
-            filters=64,
+            filters=32,
             kernel_size=4,
             strides=1,
             activation='elu')(conv_view)
         conv2 = tf.keras.layers.Conv2D(
-            filters=128,
+            filters=64,
             kernel_size=2,
             strides=2,
             activation='elu')(conv)
         conv3 = tf.keras.layers.Conv2D(
-            filters=256,
+            filters=128,
             kernel_size=2,
             strides=2,
             activation='elu')(conv2)
