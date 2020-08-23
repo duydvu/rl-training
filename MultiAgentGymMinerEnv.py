@@ -1,12 +1,13 @@
 import numpy as np
 import gym
+from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from gym.spaces import Tuple, Box, Dict, Discrete
 from ray.rllib.utils.spaces.repeated import Repeated
 
 from MinerEnv import MinerEnv
 
 
-class GymMinerEnv(gym.Env):
+class MultiAgentGymMinerEnv(MultiAgentEnv):
     def __init__(self, env_config):
         self.env = MinerEnv(None, None)
         self.env.start()
@@ -28,10 +29,18 @@ class GymMinerEnv(gym.Env):
         return self.get_state()
 
     def step(self, action):
-        self.env.step(str(action))
-        return self.get_state(), self.get_reward(), self.env.check_terminate(), {}
+        self.env.step(action)
+        return self.get_state(), self.get_reward(), self.get_done(), {}
 
     def get_state(self):
+        return {
+            '1': self.get_single_player_state(1),
+            '2': self.get_single_player_state(2),
+            '3': self.get_single_player_state(3),
+            '4': self.get_single_player_state(4),
+        }
+
+    def get_single_player_state(self, playerId):
         # Building the map
         view = np.zeros([self.width, self.height, 6], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
@@ -50,31 +59,49 @@ class GymMinerEnv(gym.Env):
                 view[x, y, 0] = 1
                 view[x, y, 1] = gold_amount / 1000
 
-        players = []
+        energies = np.zeros(4)
+        i = 3
         for player in self.state.players:
             x = player['posx']
             y = player['posy']
             if x < view.shape[0] and y < view.shape[1]:
-                view[x, y, player['playerId'] + 1] = 1
-            players.append(player['energy'])
+                if player['playerId'] == playerId:
+                    view[x, y, 2] = 1
+                    energies[0] = player['energy']
+                else:
+                    view[x, y, i] = 1
+                    energies[i - 2] = player['energy']
+                    i += 1
 
         return (
             view,
-            players
+            energies
         )
-    
+
     def get_reward(self):
+        return {
+            '1': self.get_single_player_reward(1),
+            '2': self.get_single_player_reward(2),
+            '3': self.get_single_player_reward(3),
+            '4': self.get_single_player_reward(4),
+        }
+    
+    def get_single_player_reward(self, playerId):
         # Calculate reward
         reward = 0
-        score_action = self.state.score - self.score_pre
-        self.score_pre = self.state.score
+        score_action = self.state.scores[playerId] - self.state.scores_pre[playerId]
         if score_action > 0:
             #If the DQN agent crafts golds, then it should obtain a positive reward (equal score_action)
             reward += score_action / 50
 
         return reward
-
-if __name__ == '__main__':
-    env = GymMinerEnv({})
-    env.reset()
-    print(env.get_state())
+    
+    def get_done(self):
+        done = {
+            player['playerId']: player['status'] != 0
+            for player in self.state.players
+        }
+        done['__all__'] = False
+        if all(map(lambda player: player['status'] != 0, self.state.players)):
+            done['__all__'] = True
+        return done

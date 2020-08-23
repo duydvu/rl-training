@@ -83,48 +83,49 @@ class State:
     STATUS_STOP_END_STEP = 5
 
     def __init__(self):
-        self.end = False
-        self.score = 0
-        self.lastAction = None
-        self.id = 0
         self.x = 0
         self.y = 0
         self.energy = 0
         self.mapInfo = MapInfo()
-        self.players = []
-        self.stepCount = 0
-        self.status = State.STATUS_PLAYING
+        self.players = {}
+        self.scores = {}
+        self.scores_pre = {}
+        self.status = {}
 
     def init_state(self, data): #parse data from server into object
         game_info = str_2_json(data)
-        self.end = False
-        self.score = 0
-        self.lastAction = None
-        self.id = game_info["playerId"]
         self.x = game_info["posx"]
         self.y = game_info["posy"]
         self.energy = game_info["energy"]
         self.mapInfo.init_map(game_info["gameinfo"])
-        self.stepCount = 0
-        self.status = State.STATUS_PLAYING
-        self.players = [{"playerId": 1, "posx": self.x, "posy": self.y, "energy": self.energy},
-                        {"playerId": 2, "posx": self.x, "posy": self.y, "energy": self.energy},
-                        {"playerId": 3, "posx": self.x, "posy": self.y, "energy": self.energy},
-                        {"playerId": 4, "posx": self.x, "posy": self.y, "energy": self.energy}]
+        self.players = [{
+                            "playerId": playerId + 1,
+                            "posx": self.x,
+                            "posy": self.y,
+                            "energy": self.energy,
+                            "score": 0,
+                            "status": 0,
+                        } for playerId in range(self.mapInfo.numberOfPlayers)]
+        self.scores = {
+            player['playerId']: player['score']
+            for player in self.players
+        }
+        self.scores_pre = self.scores
+        self.status = {
+            player['playerId']: player['status']
+            for player in self.players
+        }
 
     def update_state(self, data):
         new_state = str_2_json(data)
-        for player in new_state["players"]:
-            if player["playerId"] == self.id:
-                self.x = player["posx"]
-                self.y = player["posy"]
-                self.energy = player["energy"]
-                self.score = player["score"]
-                self.lastAction = player["lastAction"]
-                self.status = player["status"]
-
         self.mapInfo.update(new_state["golds"], new_state["changedObstacles"])
         self.players = new_state["players"]
-        for i in range(len(self.players) + 1, 5, 1):
-            self.players.append({"playerId": i, "posx": self.x, "posy": self.y})
-        self.stepCount = self.stepCount + 1
+        self.scores_pre = self.scores
+        self.scores = {
+            player['playerId']: player['score']
+            for player in self.players
+        }
+        self.status = {
+            player['playerId']: player['status']
+            for player in self.players
+        }
