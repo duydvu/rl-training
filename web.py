@@ -4,6 +4,7 @@ import importlib
 from warnings import simplefilter
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from random import randint
 
 from MinerEnv import MinerEnv
 
@@ -22,22 +23,27 @@ status_map = {0: "PLAYING", 1: "ELIMINATED WENT OUT MAP", 2: "ELIMINATED OUT OF 
 miner_env = MinerEnv(None, None)
 miner_env.start()
 s = None
-
+playerId = 1
 
 @app.route('/next', methods=['GET'])
 def get_next():
     global s
-    if not miner_env.check_terminate():
+    if miner_env.state.status[playerId] == 0:
         action = predictor.compute_action(s)
-        miner_env.step(str(action))
+        miner_env.step({
+            '1': action,
+            '2': randint(0, 5),
+            '3': randint(0, 5),
+            '4': randint(0, 5),
+        })
         s = miner_env.get_state()
         return jsonify({
             'state': miner_env.get_readable_state(),
-            'status': status_map[miner_env.state.status],
+            'status': status_map[miner_env.state.status[playerId]],
             'action': int(action),
         })
     return jsonify({
-        'status': status_map[miner_env.state.status],
+        'status': status_map[miner_env.state.status[playerId]],
     })
 
 
@@ -53,5 +59,5 @@ def reset():
     s = miner_env.get_state()
     return jsonify({
         'state': miner_env.get_readable_state(),
-        'status': status_map[miner_env.state.status],
+        'status': status_map[miner_env.state.status[playerId]],
     })
