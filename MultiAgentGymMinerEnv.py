@@ -21,7 +21,7 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         ))
 
     def reset(self):
-        map_id = np.random.randint(1, 6)
+        map_id = np.random.randint(1, 7)
         pos_x = np.random.randint(self.width)
         pos_y = np.random.randint(self.height)
         self.env.send_map_info(map_id, pos_x, pos_y)
