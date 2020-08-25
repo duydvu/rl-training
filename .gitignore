@@ -12,3 +12,5 @@ Data/*
 /backup
 *.sh
 *.ipynb
+
+checkpoints/
