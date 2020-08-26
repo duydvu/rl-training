@@ -87,10 +87,10 @@ class State:
         self.y = 0
         self.energy = 0
         self.mapInfo = MapInfo()
-        self.players = {}
+        self.players = []
         self.scores = {}
         self.scores_pre = {}
-        self.status = {}
+        self.statuses = {}
 
     def init_state(self, data): #parse data from server into object
         game_info = str_2_json(data)
@@ -99,19 +99,19 @@ class State:
         self.energy = game_info["energy"]
         self.mapInfo.init_map(game_info["gameinfo"])
         self.players = [{
-                            "playerId": playerId + 1,
+                            "playerId": playerId,
                             "posx": self.x,
                             "posy": self.y,
                             "energy": self.energy,
                             "score": 0,
                             "status": 0,
-                        } for playerId in range(self.mapInfo.numberOfPlayers)]
+                        } for playerId in range(1, self.mapInfo.numberOfPlayers + 1)]
         self.scores = {
             player['playerId']: player['score']
             for player in self.players
         }
         self.scores_pre = self.scores
-        self.status = {
+        self.statuses = {
             player['playerId']: player['status']
             for player in self.players
         }
@@ -125,7 +125,7 @@ class State:
             player['playerId']: player['score']
             for player in self.players
         }
-        self.status = {
+        self.statuses = {
             player['playerId']: player['status']
             for player in self.players
         }

@@ -39,22 +39,25 @@ class TestGameSocket(unittest.TestCase):
     
     def test_reset(self):
         socket = GameSocket(None, None)
-        socket.reset(['map1', '0', '0', '10', '20'])
+        socket.reset(['map1', '0', '0', '10', '3', '20'])
 
+        self.assertEqual(0, socket.userMatch.posx)
+        self.assertEqual(0, socket.userMatch.posy)
         self.assertEqual(10, socket.userMatch.energy)
+        self.assertEqual(3, socket.userMatch.gameinfo.numberOfPlayers)
         self.assertEqual(20, socket.userMatch.gameinfo.steps)
         self.assertEqual(2, socket.userMatch.gameinfo.width)
         self.assertEqual(2, socket.userMatch.gameinfo.height)
         self.assertEqual(1, len(socket.userMatch.gameinfo.golds))
         self.assertEqual(3, len(socket.userMatch.gameinfo.obstacles))
-        self.assertEqual(4, len(socket.users))
+        self.assertEqual(3, len(socket.users))
 
     @patch.object(GameSocket, 'reset')
     def test_send_reset(self, mock_reset):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,3,20')
 
-        mock_reset.assert_called_with(['map1', '0', '0', '10', '20'])
+        mock_reset.assert_called_with(['map1', '0', '0', '10', '3', '20'])
     
     @patch.object(GameSocket, 'reset')
     def test_send_update(self, mock_reset):
@@ -65,7 +68,7 @@ class TestGameSocket(unittest.TestCase):
     
     def test_send_reset_receive(self):
         socket = GameSocket(None, None)
-        socket.send('map1,7,9,10,20')
+        socket.send('map1,7,9,10,4,20')
 
         data = json.loads(socket.receive())
         self.assertDictContainsSubset({
@@ -109,7 +112,7 @@ class TestGameSocket(unittest.TestCase):
 
     def test_go_left(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 0,
             '2': 0,
@@ -143,7 +146,7 @@ class TestGameSocket(unittest.TestCase):
 
     def test_go_right(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 1,
             '2': 1,
@@ -177,7 +180,7 @@ class TestGameSocket(unittest.TestCase):
 
     def test_go_up(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 2,
             '2': 2,
@@ -211,7 +214,7 @@ class TestGameSocket(unittest.TestCase):
 
     def test_go_down(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 3,
             '2': 3,
@@ -252,7 +255,7 @@ class TestGameSocket(unittest.TestCase):
 
     def test_free(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 4,
             '2': 4,
@@ -286,7 +289,7 @@ class TestGameSocket(unittest.TestCase):
     
     def test_craft(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 5,
             '2': 5,
@@ -320,7 +323,7 @@ class TestGameSocket(unittest.TestCase):
     
     def test_mixed_actions(self):
         socket = GameSocket(None, None)
-        socket.send('map1,0,0,10,20')
+        socket.send('map1,0,0,10,4,20')
         socket.send(json.dumps({
             '1': 0,
             '2': 3,

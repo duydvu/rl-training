@@ -24,7 +24,9 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         map_id = np.random.randint(1, 7)
         pos_x = np.random.randint(self.width)
         pos_y = np.random.randint(self.height)
-        self.env.send_map_info(map_id, pos_x, pos_y)
+        number_of_players = np.random.randint(1, 5)
+        self.env.send_map_info(map_id, pos_x, pos_y,
+                               number_of_players=number_of_players)
         self.env.reset()
         return self.get_state()
 
@@ -33,14 +35,6 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         return self.get_state(), self.get_reward(), self.get_done(), {}
 
     def get_state(self):
-        return {
-            '1': self.get_single_player_state(1),
-            '2': self.get_single_player_state(2),
-            '3': self.get_single_player_state(3),
-            '4': self.get_single_player_state(4),
-        }
-
-    def get_single_player_state(self, playerId):
         # Building the map
         view = np.zeros([self.width, self.height, 6], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
@@ -59,6 +53,12 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
                 view[x, y, 0] = 1
                 view[x, y, 1] = gold_amount / 1000
 
+        return {
+            str(player['playerId']): self.get_single_player_state(np.copy(view), player['playerId'])
+            for player in self.state.players
+        }
+
+    def get_single_player_state(self, view, playerId):
         energies = np.zeros(4)
         i = 3
         for player in self.state.players:
@@ -80,10 +80,8 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
 
     def get_reward(self):
         return {
-            '1': self.get_single_player_reward(1),
-            '2': self.get_single_player_reward(2),
-            '3': self.get_single_player_reward(3),
-            '4': self.get_single_player_reward(4),
+            str(player['playerId']): self.get_single_player_reward(player['playerId'])
+            for player in self.state.players
         }
     
     def get_single_player_reward(self, playerId):
@@ -97,11 +95,7 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         return reward
     
     def get_done(self):
-        done = {
-            player['playerId']: player['status'] != 0
-            for player in self.state.players
-        }
-        done['__all__'] = False
+        done = {'__all__': False}
         if all(map(lambda player: player['status'] != 0, self.state.players)):
             done['__all__'] = True
         return done

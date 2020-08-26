@@ -128,14 +128,15 @@ class GameSocket:
     def reset(self, requests):  # load new game by given request: [map id (filename), posx, posy, initial energy]
         # load new map
         mapId, *requests = requests
-        posx, posy, energy, steps = list(map(int, requests))
-        self.userMatch = UserMatch(posx=posx, posy=posy, energy=energy, numberOfPlayers=4, steps=steps)
+        posx, posy, energy, numberOfPlayers, steps = list(map(int, requests))
+        self.userMatch = UserMatch(
+            posx=posx, posy=posy, energy=energy, numberOfPlayers=numberOfPlayers, steps=steps)
         self.reset_map(mapId)
         self.maxStep = self.userMatch.gameinfo.steps
 
         # init data for players
         self.users = []
-        for user_id in range(1, 5):
+        for user_id in range(1, numberOfPlayers + 1):
             user = PlayerInfo(user_id)
             user.posx = self.userMatch.posx
             user.posy = self.userMatch.posy

@@ -29,8 +29,8 @@ class MinerEnv:
     def end(self): #disconnect server
         self.socket.close()
 
-    def send_map_info(self, map_id, pos_x, pos_y, init_energy=50, max_steps=100):#tell server which map to run
-        request = 'map%d,%d,%d,%d,%d' % (map_id, pos_x, pos_y, init_energy, max_steps)
+    def send_map_info(self, map_id, pos_x, pos_y, init_energy=50, number_of_players=4, max_steps=100):#tell server which map to run
+        request = 'map%d,%d,%d,%d,%d,%d' % (map_id, pos_x, pos_y, init_energy, number_of_players, max_steps)
         self.socket.send(request)
 
     def reset(self): #start new game
