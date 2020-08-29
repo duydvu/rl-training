@@ -72,13 +72,13 @@ class MinerEnv:
                 view[x, y] = gold_amount
 
         playerStates = []
-        for player in self.state.players:
+        for player_id, player_state in self.state.players.items():
             playerStates.append({
-                'id': player['playerId'],
-                'x': player['posx'],
-                'y': player['posy'],
-                'energy': player['energy'],
-                'score': player['score'],
+                'id': player_id,
+                'x': player_state['posx'],
+                'y': player_state['posy'],
+                'energy': player_state['energy'],
+                'score': player_state['score'],
             })
 
         return {

@@ -22,13 +22,15 @@ status_map = {0: "PLAYING", 1: "ELIMINATED WENT OUT MAP", 2: "ELIMINATED OUT OF 
 # Initialize environment
 miner_env = MinerEnv(None, None)
 miner_env.start()
+state = miner_env.state
 s = None
 playerId = 1
+step = 0
 
 @app.route('/next', methods=['GET'])
 def get_next():
-    global s
-    if miner_env.state.status[playerId] == 0:
+    global s, step
+    if state.players[playerId]['status'] == 0:
         action = predictor.compute_action(s)
         miner_env.step({
             '1': action,
@@ -37,19 +39,21 @@ def get_next():
             '4': randint(0, 5),
         })
         s = miner_env.get_state()
+        step += 1
         return jsonify({
             'state': miner_env.get_readable_state(),
-            'status': status_map[miner_env.state.status[playerId]],
+            'status': status_map[state.players[playerId]['status']],
             'action': int(action),
+            'step': step,
         })
     return jsonify({
-        'status': status_map[miner_env.state.status[playerId]],
+        'status': status_map[state.players[playerId]['status']],
     })
 
 
 @app.route('/reset', methods=['POST'])
 def reset():
-    global s
+    global s, step
     body = request.get_json()
     map_id = int(body.get('map_id', 1))
     x = int(body.get('init_x', 0))
@@ -57,7 +61,8 @@ def reset():
     miner_env.send_map_info(map_id, x, y)
     miner_env.reset()
     s = miner_env.get_state()
+    step = 0
     return jsonify({
         'state': miner_env.get_readable_state(),
-        'status': status_map[miner_env.state.status[playerId]],
+        'status': status_map[state.players[playerId]['status']],
     })
