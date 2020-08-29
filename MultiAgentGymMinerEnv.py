@@ -67,10 +67,10 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
             if x < view.shape[0] and y < view.shape[1]:
                 if player['playerId'] == playerId:
                     view[x, y, 2] = 1
-                    energies[0] = player['energy']
+                    energies[0] = player['energy'] / 50
                 else:
                     view[x, y, i] = 1
-                    energies[i - 2] = player['energy']
+                    energies[i - 2] = player['energy'] / 50
                     i += 1
 
         return (
