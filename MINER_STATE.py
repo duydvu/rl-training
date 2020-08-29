@@ -87,10 +87,8 @@ class State:
         self.y = 0
         self.energy = 0
         self.mapInfo = MapInfo()
-        self.players = []
-        self.scores = {}
-        self.scores_pre = {}
-        self.statuses = {}
+        self.players = {}
+        self.players_pre = {}
 
     def init_state(self, data): #parse data from server into object
         game_info = str_2_json(data)
@@ -98,34 +96,28 @@ class State:
         self.y = game_info["posy"]
         self.energy = game_info["energy"]
         self.mapInfo.init_map(game_info["gameinfo"])
-        self.players = [{
-                            "playerId": playerId,
-                            "posx": self.x,
-                            "posy": self.y,
-                            "energy": self.energy,
-                            "score": 0,
-                            "status": 0,
-                        } for playerId in range(1, self.mapInfo.numberOfPlayers + 1)]
-        self.scores = {
-            player['playerId']: player['score']
-            for player in self.players
+        self.players = {
+            playerId: {
+                'posx': self.x,
+                'posy': self.y,
+                'energy': self.energy,
+                'score': 0,
+                'status': 0,
+            } for playerId in range(1, self.mapInfo.numberOfPlayers + 1)
         }
-        self.scores_pre = self.scores
-        self.statuses = {
-            player['playerId']: player['status']
-            for player in self.players
-        }
+        self.players_pre = self.players
 
     def update_state(self, data):
         new_state = str_2_json(data)
         self.mapInfo.update(new_state["golds"], new_state["changedObstacles"])
-        self.players = new_state["players"]
-        self.scores_pre = self.scores
-        self.scores = {
-            player['playerId']: player['score']
-            for player in self.players
-        }
-        self.statuses = {
-            player['playerId']: player['status']
-            for player in self.players
+        self.players_pre = self.players
+        self.players = {
+            player['playerId']: {
+                'posx': player['posx'],
+                'posy': player['posy'],
+                'score': player['score'],
+                'energy': player['energy'],
+                'status': player['status'],
+                'lastAction': player['lastAction'],
+            } for player in new_state["players"]
         }

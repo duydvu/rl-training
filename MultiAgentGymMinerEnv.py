@@ -54,23 +54,23 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
                 view[x, y, 1] = gold_amount / 1000
 
         return {
-            str(player['playerId']): self.get_single_player_state(np.copy(view), player['playerId'])
-            for player in self.state.players
+            str(player_id): self.get_single_player_state(np.copy(view), player_id)
+            for player_id in self.state.players.keys()
         }
 
     def get_single_player_state(self, view, playerId):
         energies = np.zeros(4)
         i = 3
-        for player in self.state.players:
-            x = player['posx']
-            y = player['posy']
+        for player_id, player_state in self.state.players.items():
+            x = player_state['posx']
+            y = player_state['posy']
             if x < view.shape[0] and y < view.shape[1]:
-                if player['playerId'] == playerId:
+                if player_id == playerId:
                     view[x, y, 2] = 1
-                    energies[0] = player['energy'] / 50
+                    energies[0] = player_state['energy'] / 50
                 else:
                     view[x, y, i] = 1
-                    energies[i - 2] = player['energy'] / 50
+                    energies[i - 2] = player_state['energy'] / 50
                     i += 1
 
         return (
@@ -80,14 +80,14 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
 
     def get_reward(self):
         return {
-            str(player['playerId']): self.get_single_player_reward(player['playerId'])
-            for player in self.state.players
+            str(player_id): self.get_single_player_reward(player_id)
+            for player_id in self.state.players.keys()
         }
     
     def get_single_player_reward(self, playerId):
         # Calculate reward
         reward = 0
-        score_action = self.state.scores[playerId] - self.state.scores_pre[playerId]
+        score_action = self.state.players[playerId]['score'] - self.state.players_pre[playerId]['score']
         if score_action > 0:
             #If the DQN agent crafts golds, then it should obtain a positive reward (equal score_action)
             reward += score_action / 50
@@ -96,6 +96,6 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
     
     def get_done(self):
         done = {'__all__': False}
-        if all(map(lambda player: player['status'] != 0, self.state.players)):
+        if all(map(lambda player_state: player_state['status'] != 0, self.state.players.values())):
             done['__all__'] = True
         return done
