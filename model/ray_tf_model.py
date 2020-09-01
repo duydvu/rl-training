@@ -5,7 +5,7 @@ from ray.rllib.models.tf.tf_modelv2 import TFModelV2
 from ray.rllib.utils.framework import try_import_tf
 
 
-tf1, tf, tfv = try_import_tf()
+tf = try_import_tf()
 
 
 class RayTFModel(TFModelV2):
@@ -17,11 +17,11 @@ class RayTFModel(TFModelV2):
         object_view = tf.keras.layers.Reshape(
             target_shape=(21 * 9,))(object_view)
         embedding_object_view = tf.keras.layers.Embedding(
-            input_dim=5,
-            output_dim=16,
+            input_dim=9,
+            output_dim=8,
         )(object_view)
         embedding_object_view = tf.keras.layers.Reshape(
-            target_shape=(21, 9, 16))(embedding_object_view)
+            target_shape=(21, 9, 8))(embedding_object_view)
 
         other_views = tf.stack(other_views, axis=-1)
         conv_view = tf.concat([embedding_object_view, other_views], axis=-1)
