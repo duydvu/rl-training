@@ -8,18 +8,20 @@ from MinerEnv import MinerEnv
 from constants import Action
 
 
-class MultiAgentGymMinerEnv(MultiAgentEnv):
+class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
     def __init__(self, env_config):
         self.env = MinerEnv(None, None)
         self.env.start()
         self.state = self.env.state
         self.width = 21
         self.height = 9
+        self.max_step = env_config['max_step']
         self.action_space = Discrete(6)
         self.observation_space = Tuple((
-            Box(low=0, high=np.inf, shape=(self.width, self.height, 6)),
-            Box(low=-np.inf, high=np.inf, shape=(4,)),
+            Box(low=0, high=np.inf, shape=(self.max_step, self.width, self.height, 6)),
+            Box(low=-np.inf, high=np.inf, shape=(self.max_step, 4)),
         ))
+        self.step_states = []
 
     def reset(self):
         map_id = np.random.randint(1, 7)
@@ -29,11 +31,25 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         self.env.send_map_info(map_id, pos_x, pos_y,
                                number_of_players=number_of_players)
         self.env.reset()
-        return self.get_state()
+        step_state = self.get_state()
+        self.step_states = {
+            player_id_str: (
+                [player_state[0] for _ in range(self.max_step)],
+                [player_state[1] for _ in range(self.max_step)],
+            )
+            for player_id_str, player_state in step_state.items()
+        }
+        return self.step_states
 
     def step(self, action):
         self.env.step(action)
-        return self.get_state(), self.get_reward(), self.get_done(), {}
+        step_state = self.get_state()
+        for player_id_str, player_state in step_state.items():
+            self.step_states[player_id_str] = (
+                np.concatenate((self.step_states[player_id_str][0][1:], [step_state[player_id_str][0]]), axis=0),
+                np.concatenate((self.step_states[player_id_str][1][1:], [step_state[player_id_str][1]]), axis=0),
+            )
+        return self.step_states, self.get_reward(), self.get_done(), {}
 
     def get_state(self):
         # Building the map
@@ -105,7 +121,7 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         score_action = player['score'] - player_pre['score']
         if score_action > 0:
             reward += score_action / 50
-
+        
         consumed_energy = player_pre['energy'] - player['energy']
         if Action(self.state.players[playerId]['lastAction']) == Action.CRAFT and consumed_energy == 10:
             reward += -1.0
