@@ -18,8 +18,9 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
         self.max_step = env_config['max_step']
         self.action_space = Discrete(6)
         self.observation_space = Tuple((
-            Box(low=0, high=np.inf, shape=(self.max_step, self.width, self.height, 6)),
+            Box(low=0, high=np.inf, shape=(self.max_step, self.width, self.height, 2)),
             Box(low=-np.inf, high=np.inf, shape=(self.max_step, 4)),
+            Box(low=-2, high=1, shape=(self.max_step, 4)),
         ))
         self.step_states = []
 
@@ -36,6 +37,7 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
             player_id_str: (
                 [player_state[0] for _ in range(self.max_step)],
                 [player_state[1] for _ in range(self.max_step)],
+                [player_state[2] for _ in range(self.max_step)],
             )
             for player_id_str, player_state in step_state.items()
         }
@@ -46,14 +48,15 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
         step_state = self.get_state()
         for player_id_str, player_state in step_state.items():
             self.step_states[player_id_str] = (
-                np.concatenate((self.step_states[player_id_str][0][1:], [step_state[player_id_str][0]]), axis=0),
-                np.concatenate((self.step_states[player_id_str][1][1:], [step_state[player_id_str][1]]), axis=0),
+                self.step_states[player_id_str][0][1:] + [step_state[player_id_str][0]],
+                self.step_states[player_id_str][1][1:] + [step_state[player_id_str][1]],
+                self.step_states[player_id_str][2][1:] + [step_state[player_id_str][2]],
             )
         return self.step_states, self.get_reward(), self.get_done(), {}
 
     def get_state(self):
         # Building the map
-        view = np.zeros([self.width, self.height, 6], dtype=float)
+        view = np.zeros([self.width, self.height, 2], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
             obstacle_type = obstacle['type']
             x = obstacle['posx']
@@ -88,23 +91,25 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
         }
 
     def get_single_player_state(self, view, playerId):
+        players_pos = np.full(4, -1, dtype=int)
         energies = np.zeros(4)
-        i = 3
+        i = 1
         for player_id, player_state in self.state.players.items():
             x = player_state['posx']
             y = player_state['posy']
             if x < view.shape[0] and y < view.shape[1]:
                 if player_id == playerId:
-                    view[x, y, 2] = 1
+                    players_pos[0] = x * self.height + y
                     energies[0] = player_state['energy'] / 50
                 else:
-                    view[x, y, i] = 1
-                    energies[i - 2] = player_state['energy'] / 50
+                    players_pos[i] = x * self.height + y
+                    energies[i] = player_state['energy'] / 50
                     i += 1
 
         return (
             view,
-            energies
+            players_pos,
+            energies,
         )
 
     def get_reward(self):

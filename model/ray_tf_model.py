@@ -12,8 +12,14 @@ class RayTFModel(TFModelV2):
     def __init__(self, obs_space, action_space, num_outputs, model_config,
                  name, **kw):
         super().__init__(obs_space, action_space, num_outputs, model_config, name, **kw)
-        input_view = tf.keras.layers.Input(shape=(21, 9, 6))
-        object_view, *other_views = tf.unstack(input_view, axis=-1)
+        input_view = tf.keras.layers.Input(shape=(21, 9, 2))
+        input_players = tf.keras.layers.Input(shape=(4))
+
+        players_pos_onehot = tf.one_hot(tf.cast(input_players, tf.int32), depth=21 * 9)
+        players_pos_onehot = tf.reshape(tf.transpose(players_pos_onehot, [0, 2, 1]), [-1, 21, 9, 4])
+        view = tf.concat([input_view, players_pos_onehot], axis=-1)
+
+        object_view, *other_views = tf.unstack(view, axis=-1)
         object_view = tf.keras.layers.Reshape(
             target_shape=(21 * 9,))(object_view)
         embedding_object_view = tf.keras.layers.Embedding(
@@ -42,7 +48,7 @@ class RayTFModel(TFModelV2):
             activation='elu')(conv2)
         flatten = tf.keras.layers.Flatten()(conv3)
         y = tf.keras.layers.Dense(256, activation='elu')(flatten)
-        model1 = tf.keras.Model(inputs=input_view, outputs=y)
+        model1 = tf.keras.Model(inputs=[input_view, input_players], outputs=y)
 
         input_energy = tf.keras.layers.Input(shape=(4,))
         model2_output = tf.keras.layers.Dense(
@@ -55,7 +61,7 @@ class RayTFModel(TFModelV2):
         output = tf.keras.layers.Dense(num_outputs, activation='relu')(mul)
 
         self.base_model = tf.keras.Model(
-            inputs=[input_view, input_energy], outputs=output)
+            inputs=[input_view, input_players, input_energy], outputs=output)
         self.register_variables(self.base_model.variables)
         self.base_model.summary()
 
