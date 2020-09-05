@@ -11,6 +11,5 @@ Data/*
 !*/.gitkeep
 /backup
 *.sh
-*.ipynb
 
 checkpoints/
