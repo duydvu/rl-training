@@ -3,9 +3,13 @@ import gym
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from gym.spaces import Tuple, Box, Dict, Discrete
 from ray.rllib.utils.spaces.repeated import Repeated
+import random
+import math
 
 from MinerEnv import MinerEnv
 from constants import Action
+from policy.bot1 import Bot1
+from policy.bot2 import Bot2
 
 
 class MultiAgentGymMinerEnv(MultiAgentEnv):
@@ -17,7 +21,7 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         self.height = 9
         self.action_space = Discrete(6)
         self.observation_space = Tuple((
-            Box(low=0, high=np.inf, shape=(self.width, self.height, 2)),
+            Box(low=0, high=np.inf, shape=(self.width, self.height, 1)),
             Box(low=-np.inf, high=np.inf, shape=(4,)),
             Box(low=-2, high=1, shape=(4,)),
         ))
@@ -30,31 +34,39 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
         self.env.send_map_info(map_id, pos_x, pos_y,
                                number_of_players=number_of_players)
         self.env.reset()
+        ids = list(range(2, 1 + number_of_players))
+        self.bots = []
+        if number_of_players > 1:
+            for _ in range(np.random.randint(1, number_of_players)):
+                if random.choice([1, 1, 2]) == 1:
+                    self.bots.append(Bot1(ids.pop(random.choice(range(len(ids))))))
+                else:
+                    self.bots.append(Bot2(ids.pop(random.choice(range(len(ids)))), gamma=random.choice([1.0])))
         return self.get_state()
 
     def step(self, action):
+        for bot in self.bots:
+            action[str(bot.id)] = bot.compute_action(self.state)
         self.env.step(action)
         return self.get_state(), self.get_reward(), self.get_done(), {}
 
     def get_state(self):
         # Building the map
-        view = np.zeros([self.width, self.height, 2], dtype=float)
+        view = np.zeros([self.width, self.height, 1], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
             obstacle_type = obstacle['type']
             x = obstacle['posx']
             y = obstacle['posy']
             value = obstacle['value']
-            if obstacle_type != 0:
-                obstacle_type += 1
-            if obstacle_type == 4:
+            if obstacle_type == 3:
                 if value == -5:
-                    obstacle_type = 5
+                    obstacle_type = 4
                 elif value == -20:
-                    obstacle_type = 6
+                    obstacle_type = 5
                 elif value == -40:
-                    obstacle_type = 7
+                    obstacle_type = 6
                 elif value == -100:
-                    obstacle_type = 8
+                    obstacle_type = 7
                 else:
                     raise Exception('No such obstacle')
             view[x, y, 0] = obstacle_type
@@ -64,8 +76,7 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
             x = gold['posx']
             y = gold['posy']
             if gold_amount > 0:
-                view[x, y, 0] = 1
-                view[x, y, 1] = gold_amount / 1000
+                view[x, y, 0] = min(7 + math.ceil(gold_amount / 50), 37)
 
         return {
             str(player_id): self.get_single_player_state(np.copy(view), player_id)
@@ -110,8 +121,14 @@ class MultiAgentGymMinerEnv(MultiAgentEnv):
             reward += score_action / 50
 
         consumed_energy = player_pre['energy'] - player['energy']
-        if Action(self.state.players[playerId]['lastAction']) == Action.CRAFT and consumed_energy == 10:
+        if Action(player['lastAction']) == Action.CRAFT and consumed_energy == 10:
             reward += -1.0
+
+        if player['status'] == self.state.STATUS_ELIMINATED_OUT_OF_ENERGY:
+            reward += -1.0
+        
+        if Action(player['lastAction']) == Action.FREE and player_pre['energy'] == 50:
+            reward += -0.1
 
         return reward
     
