@@ -2,13 +2,13 @@ import numpy as np
 import pandas as pd
 from typing import List
 
-from utils import get_now_str
+from .common import get_now_str
 
 
 class Recorder:
     def __init__(self, header: List[str]):
         self.header = header
-        self.csv_file = "Data/data_%s.csv" % get_now_str()
+        self.csv_file = "data/data_%s.csv" % get_now_str()
         with open(self.csv_file, 'w') as f:
             pd.DataFrame(columns=self.header).to_csv(f, index=False, header=True)
     
