@@ -1,9 +1,10 @@
 import sys
 import json
 import numpy as np
-from GAME_SOCKET_DUMMY import GameSocket #in testing version, please use GameSocket instead of GAME_SOCKET_DUMMY
-from MINER_STATE import State
-from constants import Action
+
+from .game_socket_dummy import GameSocket #in testing version, please use GameSocket instead of GAME_SOCKET_DUMMY
+from .miner_state import State
+from src.utils.constants import Action
 
 
 class NpEncoder(json.JSONEncoder):

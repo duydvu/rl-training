@@ -1,6 +1,7 @@
-from MINER_STATE import State
 import numpy as np
 import random
+
+from src.game.miner_env import State
 
 
 class Bot1:

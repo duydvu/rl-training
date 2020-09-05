@@ -108,7 +108,7 @@ class GameSocket:
     def __init__(self, host, port):
         self.stepCount = 0
         self.maxStep = 0
-        self.mapdir = "Maps"  # where to load all pre-defined maps
+        self.mapdir = "maps"  # where to load all pre-defined maps
         self.users = []
         self.stepState = StepState()
         self.maps = {}  # key: map file name, value: file content

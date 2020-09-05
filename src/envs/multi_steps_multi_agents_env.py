@@ -6,10 +6,10 @@ from ray.rllib.utils.spaces.repeated import Repeated
 import random
 import math
 
-from MinerEnv import MinerEnv
-from constants import Action
-from policy.bot1 import Bot1
-from policy.bot2 import Bot2
+from src.game.miner_env import MinerEnv
+from src.utils.constants import Action
+from src.policies.bot1 import Bot1
+from src.policies.bot2 import Bot2
 
 
 class MultiStepsMultiAgentsEnv(MultiAgentEnv):
