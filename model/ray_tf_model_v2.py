@@ -12,30 +12,40 @@ class RayTFModel(TFModelV2):
     def __init__(self, obs_space, action_space, num_outputs, model_config,
                  name, **kw):
         super().__init__(obs_space, action_space, num_outputs, model_config, name, **kw)
+        # Configs
         custom_model_config = model_config['custom_model_config']
         max_step = custom_model_config['max_step']
         embedding_size = custom_model_config['embedding_size']
         conv1_filters = custom_model_config['conv1_filters']
-        conv2_filter = custom_model_config['conv2_filter']
 
-        input_view = tf.keras.layers.Input(shape=(max_step, 21, 9, 2))
-        input_players = tf.keras.layers.Input(shape=(max_step, 4))
-
-        players_pos_onehot = tf.one_hot(tf.cast(input_players, tf.int32), depth=21 * 9)
-        players_pos_onehot = tf.reshape(tf.transpose(players_pos_onehot, [0, 1, 3, 2]), [-1, max_step, 21, 9, 4])
-        view = tf.concat([input_view, players_pos_onehot], axis=-1)
-
-        object_view, *other_views = tf.unstack(view, axis=-1)
+        # View input
+        input_view = tf.keras.layers.Input(shape=(21, 9))
         object_view = tf.keras.layers.Reshape(
-            target_shape=(max_step * 21 * 9,))(object_view)
+            target_shape=(21 * 9,))(input_view)
         embedding_object_view = tf.keras.layers.Embedding(
-            input_dim=20,
+            input_dim=38,
             output_dim=embedding_size,
         )(object_view)
         embedding_object_view = tf.keras.layers.Reshape(
-            target_shape=(max_step, 21, 9, embedding_size))(embedding_object_view)
-        other_views = tf.stack(other_views, axis=-1)
-        conv_view = tf.concat([embedding_object_view, other_views], axis=-1)
+            target_shape=(21, 9, embedding_size))(embedding_object_view)
+
+        # Players input
+        input_players = tf.keras.layers.Input(shape=(max_step, 4))
+        input_players_int = tf.cast(input_players, tf.int32)
+        input_single_player_list = tf.unstack(input_players_int, axis=-1)
+        per_player_pos_onehot_list = []
+        for input_single_player in input_single_player_list:
+            per_player_pos_onehot = tf.one_hot(input_single_player, depth=21 * 9)
+            per_player_pos_onehot = tf.reshape(tf.transpose(per_player_pos_onehot, [0, 2, 1]), [-1, 21, 9, max_step])
+            per_player_pos_onehot_list.append(per_player_pos_onehot)
+
+        # Combine view & players inputs
+        per_player_view_list = []
+        for per_player_pos_onehot in per_player_pos_onehot_list:
+            per_player_view_list.append(tf.expand_dims(
+                tf.concat([embedding_object_view, per_player_pos_onehot], axis=-1),
+                axis=1))
+        player_view = tf.concat(per_player_view_list, axis=1)
 
         cnn = tf.keras.Sequential(name='conv1')
         for filters, kernel_size, strides in conv1_filters:
@@ -45,26 +55,20 @@ class RayTFModel(TFModelV2):
                 strides=strides,
                 activation='elu'))
         cnn.add(tf.keras.layers.Flatten())
-        flatten = tf.keras.layers.TimeDistributed(cnn)(conv_view)
-        model1_output = tf.keras.layers.Dense(256, activation='elu')(flatten)
+        cnn.add(tf.keras.layers.Dense(256, activation='elu'))
+
+        cnn_out = tf.keras.layers.TimeDistributed(cnn)(player_view)
+        flatten = tf.keras.layers.Flatten()(cnn_out)
+        model1_output = tf.keras.layers.Dense(384, activation='elu')(flatten)
         model1 = tf.keras.Model(inputs=[input_view, input_players], outputs=model1_output, name='view')
 
-        input_energy = tf.keras.layers.Input(shape=(max_step, 4))
-        model2_output = tf.keras.layers.Dense(256, activation='tanh')(input_energy)
+        input_energy = tf.keras.layers.Input(shape=(4,))
+        model2_output = tf.keras.layers.Dense(128, activation='elu')(input_energy)
         model2 = tf.keras.Model(inputs=input_energy, outputs=model2_output, name='energy')
 
-        mul = tf.keras.layers.multiply([model1.output, model2.output])
+        concat = tf.concat([model1.output, model2.output], axis=-1)
 
-        cnn2 = tf.keras.layers.Conv1D(
-            filters=conv2_filter[0],
-            kernel_size=conv2_filter[1],
-            strides=conv2_filter[2],
-            activation='elu',
-            name='conv2')(mul)
-        flatten2 = tf.keras.layers.Flatten()(cnn2)
-
-        dense = tf.keras.layers.Dense(256, activation='relu')(flatten2)
-        output = tf.keras.layers.Dense(num_outputs, activation='relu')(dense)
+        output = tf.keras.layers.Dense(num_outputs, activation='elu')(concat)
 
         self.base_model = tf.keras.Model(
             inputs=[input_view, input_players, input_energy], outputs=output)
