@@ -12,21 +12,19 @@ from policy.bot1 import Bot1
 from policy.bot2 import Bot2
 
 
-class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
+class MultiAgentsEnv(MultiAgentEnv):
     def __init__(self, env_config):
         self.env = MinerEnv(None, None)
         self.env.start()
         self.state = self.env.state
         self.width = 21
         self.height = 9
-        self.max_step = env_config['max_step']
         self.action_space = Discrete(6)
         self.observation_space = Tuple((
-            Box(low=0, high=np.inf, shape=(self.width, self.height)),
-            Box(low=-np.inf, high=np.inf, shape=(self.max_step, 4)),
+            Box(low=0, high=np.inf, shape=(self.width, self.height, 1)),
+            Box(low=-np.inf, high=np.inf, shape=(4,)),
             Box(low=-2, high=1, shape=(4,)),
         ))
-        self.step_states = []
 
     def reset(self):
         map_id = np.random.randint(1, 7)
@@ -43,34 +41,18 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
                 if random.choice([1, 1, 2]) == 1:
                     self.bots.append(Bot1(ids.pop(random.choice(range(len(ids))))))
                 else:
-                    self.bots.append(Bot2(ids.pop(random.choice(range(len(ids)))), gamma=random.choice([0.9, 0.95, 1.0])))
-        step_state = self.get_state()
-        self.step_states = {
-            player_id_str: (
-                player_state[0],
-                [player_state[1] for _ in range(self.max_step)],
-                player_state[2],
-            )
-            for player_id_str, player_state in step_state.items()
-        }
-        return self.step_states
+                    self.bots.append(Bot2(ids.pop(random.choice(range(len(ids)))), gamma=random.choice([1.0])))
+        return self.get_state()
 
     def step(self, action):
         for bot in self.bots:
             action[str(bot.id)] = bot.compute_action(self.state)
         self.env.step(action)
-        step_state = self.get_state()
-        for player_id_str, player_state in step_state.items():
-            self.step_states[player_id_str] = (
-                step_state[player_id_str][0],
-                self.step_states[player_id_str][1][1:] + [step_state[player_id_str][1]],
-                step_state[player_id_str][2],
-            )
-        return self.step_states, self.get_reward(), self.get_done(), {}
+        return self.get_state(), self.get_reward(), self.get_done(), {}
 
     def get_state(self):
         # Building the map
-        view = np.zeros([self.width, self.height], dtype=float)
+        view = np.zeros([self.width, self.height, 1], dtype=float)
         for obstacle in self.state.mapInfo.obstacles:
             obstacle_type = obstacle['type']
             x = obstacle['posx']
@@ -87,14 +69,14 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
                     obstacle_type = 7
                 else:
                     raise Exception('No such obstacle')
-            view[x, y] = obstacle_type
+            view[x, y, 0] = obstacle_type
 
         for gold in self.state.mapInfo.golds:
             gold_amount = gold['amount']
             x = gold['posx']
             y = gold['posy']
             if gold_amount > 0:
-                view[x, y] = min(7 + math.ceil(gold_amount / 50), 37)
+                view[x, y, 0] = min(7 + math.ceil(gold_amount / 50), 37)
 
         return {
             str(player_id): self.get_single_player_state(np.copy(view), player_id)
@@ -137,17 +119,14 @@ class MultiStepsMultiAgentGymMinerEnv(MultiAgentEnv):
         score_action = player['score'] - player_pre['score']
         if score_action > 0:
             reward += score_action / 50
-        
+
         consumed_energy = player_pre['energy'] - player['energy']
-        if Action(self.state.players[playerId]['lastAction']) == Action.CRAFT and consumed_energy == 10:
+        if Action(player['lastAction']) == Action.CRAFT and consumed_energy == 10:
             reward += -1.0
 
         if player['status'] == self.state.STATUS_ELIMINATED_OUT_OF_ENERGY:
-            reward += -6.0
-
-        if player['status'] == self.state.STATUS_ELIMINATED_WENT_OUT_MAP:
-            reward += -6.0
-
+            reward += -1.0
+        
         if Action(player['lastAction']) == Action.FREE and player_pre['energy'] == 50:
             reward += -0.1
 
